@@ -1,0 +1,231 @@
+// Claimtive data model — multi-tenant RCM denial & underpayment intelligence.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
+enum EdiType {
+  X835 // Remittance advice (ERA) — payments, adjustments, denials
+  X837 // Claim submission — what was billed
+}
+
+enum FileStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+// Where a financial adjustment was applied in the 835.
+enum AdjustmentLevel {
+  CLAIM
+  SERVICE
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  payers    Payer[]
+  contracts Contract[]
+  ediFiles  EdiFile[]
+  claims    Claim[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String       @unique
+  passwordHash   String
+  name           String
+  role           UserRole     @default(OWNER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  uploadedFiles EdiFile[]
+
+  @@index([organizationId])
+}
+
+model Payer {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  // Payer identifier as it appears in EDI (N1 segment / payer ID).
+  externalId     String?
+  createdAt      DateTime     @default(now())
+
+  contracts Contract[]
+  claims    Claim[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// A payer contract whose rates define expected reimbursement per CPT/HCPCS.
+model Contract {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payerId        String
+  payer          Payer          @relation(fields: [payerId], references: [id], onDelete: Cascade)
+  name           String
+  effectiveDate  DateTime?
+  createdAt      DateTime       @default(now())
+
+  rates ContractRate[]
+
+  @@index([organizationId])
+  @@index([payerId])
+}
+
+// Contracted allowed amount for a given procedure code (optionally by modifier).
+model ContractRate {
+  id              String   @id @default(cuid())
+  contractId      String
+  contract        Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  procedureCode   String // CPT / HCPCS
+  modifier        String?
+  allowedAmount   Decimal  @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+
+  @@unique([contractId, procedureCode, modifier])
+  @@index([procedureCode])
+}
+
+// A single uploaded EDI file (835 or 837).
+model EdiFile {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedById    String?
+  uploadedBy      User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  fileName        String
+  type            EdiType
+  status          FileStatus   @default(PENDING)
+  controlNumber   String?
+  byteSize        Int          @default(0)
+  errorMessage    String?
+  // Aggregates computed at ingest time for fast dashboard reads.
+  claimCount      Int          @default(0)
+  totalCharged    Decimal      @default(0) @db.Decimal(14, 2)
+  totalPaid       Decimal      @default(0) @db.Decimal(14, 2)
+  totalDenied     Decimal      @default(0) @db.Decimal(14, 2)
+  totalUnderpaid  Decimal      @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime     @default(now())
+
+  claims Claim[]
+
+  @@index([organizationId])
+}
+
+// A claim's payment outcome (primarily sourced from an 835 CLP loop).
+model Claim {
+  id                      String       @id @default(cuid())
+  organizationId          String
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ediFileId               String
+  ediFile                 EdiFile      @relation(fields: [ediFileId], references: [id], onDelete: Cascade)
+  payerId                 String?
+  payer                   Payer?       @relation(fields: [payerId], references: [id], onDelete: SetNull)
+
+  payerName               String?
+  patientControlNumber    String? // CLP01 — the provider's claim ID
+  payerClaimControlNumber String? // CLP07 — the payer's internal claim ID
+  statusCode              String? // CLP02
+  statusLabel             String?
+  filingIndicator         String? // CLP06
+  renderingProviderNpi    String?
+  patientName             String?
+  serviceDate             DateTime?
+  paidDate                DateTime?
+
+  totalCharge             Decimal      @default(0) @db.Decimal(12, 2)
+  totalPaid               Decimal      @default(0) @db.Decimal(12, 2)
+  patientResponsibility   Decimal      @default(0) @db.Decimal(12, 2)
+  // Derived analytics fields.
+  deniedAmount            Decimal      @default(0) @db.Decimal(12, 2)
+  underpaidAmount         Decimal      @default(0) @db.Decimal(12, 2)
+  isDenied                Boolean      @default(false)
+  isUnderpaid             Boolean      @default(false)
+  primaryDenialCode       String?
+  primaryDenialReason     String?
+
+  createdAt               DateTime     @default(now())
+
+  serviceLines ServiceLine[]
+  adjustments  Adjustment[]
+
+  @@index([organizationId])
+  @@index([ediFileId])
+  @@index([isDenied])
+  @@index([isUnderpaid])
+}
+
+// A service line within a claim (835 SVC loop).
+model ServiceLine {
+  id              String   @id @default(cuid())
+  claimId         String
+  claim           Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  procedureCode   String // CPT / HCPCS (SVC01)
+  modifier        String?
+  revenueCode     String?
+  units           Decimal  @default(1) @db.Decimal(10, 2)
+  serviceDate     DateTime?
+
+  chargeAmount    Decimal  @default(0) @db.Decimal(12, 2) // SVC02
+  paidAmount      Decimal  @default(0) @db.Decimal(12, 2) // SVC03
+  // Allowed = charge - contractual (CO) adjustments.
+  allowedAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  // Expected reimbursement from the matched contract rate, if any.
+  contractedRate  Decimal? @db.Decimal(12, 2)
+  underpaidAmount Decimal  @default(0) @db.Decimal(12, 2)
+  deniedAmount    Decimal  @default(0) @db.Decimal(12, 2)
+
+  isDenied        Boolean  @default(false)
+  isUnderpaid     Boolean  @default(false)
+  denialCode      String?
+  denialReason    String?
+  remarkCodes     String[] @default([])
+  createdAt       DateTime @default(now())
+
+  adjustments Adjustment[]
+
+  @@index([claimId])
+  @@index([procedureCode])
+}
+
+// A CAS-segment adjustment (group code + CARC reason + amount).
+model Adjustment {
+  id            String          @id @default(cuid())
+  level         AdjustmentLevel
+  claimId       String?
+  claim         Claim?          @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  serviceLineId String?
+  serviceLine   ServiceLine?    @relation(fields: [serviceLineId], references: [id], onDelete: Cascade)
+
+  groupCode     String // CO, PR, OA, PI, CR
+  reasonCode    String // CARC
+  amount        Decimal @db.Decimal(12, 2)
+  quantity      Decimal? @db.Decimal(10, 2)
+
+  @@index([claimId])
+  @@index([serviceLineId])
+  @@index([groupCode])
+  @@index([reasonCode])
+}

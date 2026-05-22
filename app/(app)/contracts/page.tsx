@@ -1,0 +1,90 @@
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/db";
+import { formatCurrencyPrecise } from "@/lib/format";
+
+export const metadata = { title: "Contracts" };
+
+export default async function ContractsPage() {
+  const user = (await getCurrentUser())!;
+  const payers = await prisma.payer.findMany({
+    where: { organizationId: user.organizationId },
+    include: {
+      contracts: {
+        include: {
+          rates: { orderBy: { procedureCode: "asc" } }
+        }
+      }
+    },
+    orderBy: { name: "asc" }
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-slate-900">
+          Payer contracts &amp; rates
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Contracted allowed amounts per procedure code. These power underpayment
+          detection — paid amounts below these rates are flagged automatically.
+        </p>
+      </div>
+
+      {payers.length === 0 ? (
+        <div className="card p-10 text-center text-slate-500">
+          No payers yet. They are created automatically when you upload EDI files.
+        </div>
+      ) : (
+        payers.map((payer) => (
+          <div key={payer.id} className="card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  {payer.name}
+                </h2>
+                {payer.externalId ? (
+                  <p className="text-xs text-slate-500">
+                    Payer ID: {payer.externalId}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            {payer.contracts.length === 0 ? (
+              <p className="px-6 py-4 text-sm text-slate-500">
+                No contract loaded for this payer.
+              </p>
+            ) : (
+              payer.contracts.map((contract) => (
+                <div key={contract.id} className="px-6 py-4">
+                  <p className="mb-3 text-sm font-medium text-slate-700">
+                    {contract.name}
+                    <span className="ml-2 text-xs text-slate-400">
+                      {contract.rates.length} rates
+                    </span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
+                    {contract.rates.map((rate) => (
+                      <div
+                        key={rate.id}
+                        className="flex items-center justify-between border-b border-slate-100 py-1 text-sm"
+                      >
+                        <span className="font-mono text-slate-700">
+                          {rate.procedureCode}
+                          {rate.modifier ? `-${rate.modifier}` : ""}
+                        </span>
+                        <span className="tabular-nums text-slate-900">
+                          {formatCurrencyPrecise(Number(rate.allowedAmount))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}

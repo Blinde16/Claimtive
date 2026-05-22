@@ -1,5 +1,0 @@
-import { redirect } from "next/navigation";
-
-export default function TechnologyPage() {
-  redirect("/how-it-works");
-}
