@@ -1,0 +1,35 @@
+# Firebase App Hosting configuration for Claimtive.
+# Backend runs on Cloud Run; the app connects to Cloud SQL via the Cloud SQL
+# Node.js connector (see lib/db.ts), keyed off INSTANCE_CONNECTION_NAME.
+
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+
+env:
+  # --- Cloud SQL connection (non-sensitive) ---
+  - variable: INSTANCE_CONNECTION_NAME
+    value: claimtive:us-central1:claimtive-db
+    availability:
+      - RUNTIME
+  - variable: DB_USER
+    value: claimtive_app
+    availability:
+      - RUNTIME
+  - variable: DB_NAME
+    value: claimtive
+    availability:
+      - RUNTIME
+
+  # --- Secrets (Cloud Secret Manager) ---
+  - variable: DB_PASSWORD
+    secret: claimtive-db-password
+    availability:
+      - RUNTIME
+  - variable: AUTH_SECRET
+    secret: claimtive-auth-secret
+    availability:
+      - RUNTIME

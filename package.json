@@ -2,7 +2,12 @@
   "name": "claimtive",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -20,10 +25,13 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@google-cloud/cloud-sql-connector": "^1.11.0",
+    "@prisma/adapter-pg": "^5.22.0",
     "@prisma/client": "5.22.0",
     "bcryptjs": "2.4.3",
     "jose": "5.9.6",
     "next": "^14.2.35",
+    "pg": "^8.21.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "zod": "3.23.8"
@@ -31,6 +39,7 @@
   "devDependencies": {
     "@types/bcryptjs": "2.4.6",
     "@types/node": "20.14.10",
+    "@types/pg": "^8.20.0",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",

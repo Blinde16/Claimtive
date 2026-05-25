@@ -29,3 +29,10 @@ next-env.d.ts
 
 # vitest
 /coverage
+
+# Local provisioning secrets (never commit)
+.secrets.local
+.env.local
+
+# local verification artifact
+deploy-dashboard.png
