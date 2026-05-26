@@ -33,3 +33,24 @@ env:
     secret: claimtive-auth-secret
     availability:
       - RUNTIME
+
+  # --- AI layer (Claude via Vertex AI, under GCP BAA) ---
+  # Auth uses ADC via the App Hosting compute SA (granted roles/aiplatform.user);
+  # no API key/secret required. The orchestrator falls back to deterministic
+  # rule-based insights if AI_ENABLED is false or any call/verify step fails.
+  - variable: AI_ENABLED
+    value: "true"
+    availability:
+      - RUNTIME
+  - variable: VERTEX_PROJECT_ID
+    value: claimtive
+    availability:
+      - RUNTIME
+  - variable: VERTEX_REGION
+    value: us-east5
+    availability:
+      - RUNTIME
+  - variable: VERTEX_CLAUDE_MODEL
+    value: claude-sonnet-4-6@default
+    availability:
+      - RUNTIME
