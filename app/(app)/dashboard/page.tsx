@@ -8,6 +8,7 @@ import {
   getPayerBreakdown
 } from "@/lib/analytics/metrics";
 import { generateInsights } from "@/lib/insights";
+import { generateInsightsWithFallback } from "@/lib/ai/insights";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import {
   BarList,
@@ -39,7 +40,13 @@ export default async function DashboardPage() {
     })
   ]);
 
-  const insights = generateInsights({ metrics, categories, reasons, payers });
+  // Try AI-generated insights first; on any failure (disabled, error, or the
+  // post-gen verifier rejecting a hallucination) fall back to the deterministic
+  // rule-based insights. The user always sees *some* insights.
+  const insights = await generateInsightsWithFallback(
+    { metrics, categories, reasons, payers },
+    generateInsights
+  );
 
   if (metrics.claimCount === 0) {
     return (

@@ -10,7 +10,8 @@ const nextConfig = {
       "@prisma/client",
       "@prisma/adapter-pg",
       "pg",
-      "@google-cloud/cloud-sql-connector"
+      "@google-cloud/cloud-sql-connector",
+      "@anthropic-ai/vertex-sdk"
     ]
   }
 };

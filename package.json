@@ -25,6 +25,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/vertex-sdk": "^0.16.1",
     "@google-cloud/cloud-sql-connector": "^1.11.0",
     "@prisma/adapter-pg": "^5.22.0",
     "@prisma/client": "5.22.0",
