@@ -5,8 +5,13 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-/** Per-unit contracted allowed amount for a procedure, or undefined if none. */
+/**
+ * Per-unit contracted allowed amount for a procedure under a specific payer's
+ * contract, or undefined if none. Payer-scoped so the correct rate is applied
+ * even when a clinic has different contracted rates per payer for the same code.
+ */
 export type ContractRateLookup = (
+  payerId: string | null,
   procedureCode: string,
   modifier?: string
 ) => number | undefined;
@@ -68,7 +73,8 @@ function dominantActionable(
 
 export function analyzeServiceLine(
   line: ParsedServiceLine,
-  rateLookup?: ContractRateLookup
+  rateLookup?: ContractRateLookup,
+  payerId: string | null = null
 ): ServiceAnalysis {
   // Allowed = billed minus contractual obligations the payer applied.
   const contractual = sumGroup(line.adjustments, "CO");
@@ -79,7 +85,7 @@ export function analyzeServiceLine(
   let contractedRate: number | undefined;
   let underpaidAmount = 0;
   if (rateLookup) {
-    const rate = rateLookup(line.procedureCode, line.modifier);
+    const rate = rateLookup(payerId, line.procedureCode, line.modifier);
     if (rate !== undefined) {
       contractedRate = rate;
       if (!isDenied) {
@@ -106,10 +112,11 @@ export function analyzeServiceLine(
 
 export function analyzeClaim(
   claim: ParsedClaim,
-  rateLookup?: ContractRateLookup
+  rateLookup?: ContractRateLookup,
+  payerId: string | null = null
 ): ClaimAnalysis {
   const services = claim.serviceLines.map((line) =>
-    analyzeServiceLine(line, rateLookup)
+    analyzeServiceLine(line, rateLookup, payerId)
   );
 
   const serviceDenied = round2(

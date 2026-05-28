@@ -15,7 +15,7 @@ const rates: Record<string, number> = {
   "99213": 130,
   "20610": 250
 };
-const rateLookup: ContractRateLookup = (code) => rates[code];
+const rateLookup: ContractRateLookup = (_payerId, code) => rates[code];
 
 describe("classifyAdjustment", () => {
   it("treats contractual write-offs as non-actionable", () => {

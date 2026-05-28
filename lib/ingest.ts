@@ -63,22 +63,31 @@ async function buildRateLookup(
 ): Promise<ContractRateLookup> {
   const rates = await prisma.contractRate.findMany({
     where: { contract: { organizationId } },
-    select: { procedureCode: true, modifier: true, allowedAmount: true }
+    select: {
+      procedureCode: true,
+      modifier: true,
+      allowedAmount: true,
+      contract: { select: { payerId: true } }
+    }
   });
+  // Keyed by payerId so payer A's rate is never applied to payer B's claim.
   const map = new Map<string, number>();
   for (const r of rates) {
     const amount = Number(r.allowedAmount);
-    map.set(`${r.procedureCode}|${r.modifier ?? ""}`, amount);
-    if (!map.has(r.procedureCode)) map.set(r.procedureCode, amount);
+    const pid = r.contract.payerId;
+    map.set(`${pid}|${r.procedureCode}|${r.modifier ?? ""}`, amount);
+    const baseKey = `${pid}|${r.procedureCode}`;
+    if (!map.has(baseKey)) map.set(baseKey, amount);
   }
-  return (code, modifier) => {
+  return (payerId, code, modifier) => {
+    if (!payerId) return undefined; // no payer match → no contracted rate
     if (modifier) {
-      const exact = map.get(`${code}|${modifier}`);
+      const exact = map.get(`${payerId}|${code}|${modifier}`);
       if (exact !== undefined) return exact;
     }
-    const base = map.get(`${code}|`);
+    const base = map.get(`${payerId}|${code}|`);
     if (base !== undefined) return base;
-    return map.get(code);
+    return map.get(`${payerId}|${code}`);
   };
 }
 
@@ -141,7 +150,7 @@ async function ingest835(
       let totalUnderpaid = 0;
 
       for (const claim of parsed.claims) {
-        const analysis = analyzeClaim(claim, rateLookup);
+        const analysis = analyzeClaim(claim, rateLookup, payerId);
         totalCharged = round2(totalCharged + claim.totalCharge);
         totalPaid = round2(totalPaid + claim.totalPaid);
         totalDenied = round2(totalDenied + analysis.deniedAmount);
@@ -296,7 +305,8 @@ async function ingest837(
                 units: line.units,
                 serviceDate: toDate(line.serviceDate),
                 chargeAmount: line.chargeAmount,
-                contractedRate: rateLookup(line.procedureCode, line.modifier) ?? null
+                contractedRate:
+                  rateLookup(payerId, line.procedureCode, line.modifier) ?? null
               }))
             }
           }
