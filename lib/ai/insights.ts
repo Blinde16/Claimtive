@@ -83,7 +83,7 @@ export async function generateAiInsights(
     raw = await callModel({
       system: SYSTEM_PROMPT,
       user: JSON.stringify(payload),
-      maxTokens: 1200,
+      maxTokens: 2048,
       temperature: 0
     });
   } catch (err) {

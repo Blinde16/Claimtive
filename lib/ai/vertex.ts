@@ -71,9 +71,14 @@ export async function callModel(opts: ModelCallOptions): Promise<string> {
     config: {
       systemInstruction: opts.system,
       temperature: opts.temperature ?? 0,
-      maxOutputTokens: opts.maxTokens ?? 1200,
+      maxOutputTokens: opts.maxTokens ?? 2048,
       // Force valid JSON output (more reliable than asking in the prompt).
-      responseMimeType: "application/json"
+      responseMimeType: "application/json",
+      // Gemini 2.5 "thinking" tokens count against maxOutputTokens and will
+      // truncate the JSON for a simple formatting task. We don't need
+      // reasoning here (the deterministic engine already did the math), so
+      // disable thinking to give the full budget to the output.
+      thinkingConfig: { thinkingBudget: 0 }
     }
   });
 
