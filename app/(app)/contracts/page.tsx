@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { formatCurrencyPrecise } from "@/lib/format";
+import { ContractUploadForm } from "@/components/ContractUploadForm";
 
 export const metadata = { title: "Contracts" };
 
@@ -29,6 +30,18 @@ export default async function ContractsPage() {
           detection — paid amounts below these rates are flagged automatically.
         </p>
       </div>
+
+      <section className="card p-6">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Upload a fee schedule
+        </h2>
+        <p className="mb-4 mt-1 text-xs text-slate-500">
+          Tip: load your contracted rates <strong>before</strong> uploading
+          remittances — underpayments are detected at import time, so rates must
+          exist first to be applied to incoming claims.
+        </p>
+        <ContractUploadForm />
+      </section>
 
       {payers.length === 0 ? (
         <div className="card p-10 text-center text-slate-500">
