@@ -1,6 +1,6 @@
 # Claimtive — Product & Business Roadmap
 
-_Last updated: 2026-05-25_
+_Last updated: 2026-05-28_
 
 Claimtive is a multi-tenant healthcare **RCM (Revenue Cycle Management) denial &
 underpayment intelligence** platform. It ingests insurer remittance files
@@ -69,9 +69,16 @@ data and produce a real "recoverable dollars" number.
 - [ ] Sign GCP BAA + clinic BAA
 - [ ] Add **MFA** + **audit logging**
 - [ ] Verify Cloud SQL automated backups + test a restore
-- [~] **Harden the 835/837 parser** against the clinic's real files — _done: dedup by content hash (no double-counting on re-upload), >5000-claim guard, 30s→120s tx timeout, clearer empty/non-EDI errors. Still TODO: reversals/COB-specific handling as real files surface them._
+- [~] **Harden the 835/837 parser** against the clinic's real files — _done: dedup by content hash (no double-counting on re-upload), >5000-claim guard, 30s→120s tx timeout, clearer empty/non-EDI errors. Still TODO: reversals handling as real files surface them._
 - [~] Handle **scale**: large files — _done: claim-count guard + longer timeout. Still TODO: background ingest + remove the 100-row display cap / pagination._
-- [x] **Contract/fee-schedule upload UI** (unlocks underpayment detection) — _done: CSV upload + rate management, 15 tests_
+- [x] **Contract/fee-schedule upload UI** (unlocks underpayment detection) — _done: CSV upload + rate management (15 tests), payer-scoped matching, and **Gemini-assisted extraction from contract PDFs** with a human review-and-confirm gate before rates affect any math (11 tests)_
+
+#### Accuracy — "find all the money" (Tier 1, shipped)
+- [x] **Payer-scoped contract matching** — a payer's rate is never applied to another payer's claim
+- [x] **Expanded CARC mapping** (+35 codes) for sharper denial categorization
+- [x] **837 ↔ 835 lost-claim reconciliation** — flags submitted claims with no remittance (timely-filing risk)
+- [x] **Patient-responsibility surfacing** — deductible/coinsurance/copay balances as collectible revenue (separate from payer denials)
+- [x] **Coordination-of-benefits follow-up** — isolates CARC 22/109/19 claims so the secondary gets billed (a subset of actionable denials, not additive)
 - [x] **CSV export** of flagged claims (so billers can act) — _done: filtered export incl. worklist fields_
 - [x] **Team invite + member management** — _done: owner adds/removes members, one-time temp passwords_
 - [x] **Password / account recovery** — _done: self-serve change password + owner-reset member password (no email dependency)_
@@ -82,7 +89,7 @@ data and produce a real "recoverable dollars" number.
 - [ ] **Automated ingestion**: SFTP drop, then clearinghouse integration
 - [ ] **Appeal letter generation** (Claude) — drafts appeals from denial data
 - [x] **Claim workflow**: assign, status (new/working/appealed/resolved), notes — _done: per-claim worklist panel + list filter_
-- [ ] **837 ↔ 835 matching** (link billed → paid per claim)
+- [~] **837 ↔ 835 matching** — _done: lost-claim reconciliation (submitted with no remittance). Still TODO: full billed→paid line linkage per claim._
 - [~] **Team / RBAC**: invite users, role enforcement, SSO option — _done: invite + OWNER/MEMBER enforcement. Still TODO: SSO._
 - [ ] **Reporting**: per-role dashboards, scheduled email summaries
 - [ ] **Private networking** for Cloud SQL (VPC), least-privilege IAM pass
@@ -130,7 +137,7 @@ per clinic is small.
 | Cloud SQL | ~$10/mo (micro) | ~$100–250/mo (2 vCPU, HA) |
 | App Hosting / Cloud Run | ~$0–20/mo (scales to zero) | ~$50–200/mo |
 | Secret Mgr / logging / backups / storage | ~$5/mo | ~$20–50/mo |
-| Anthropic API (insights + appeals) | a few $/mo | usage-based (~cents/claim) |
+| Gemini on Vertex AI (insights, chat, PDF extraction) | a few $/mo | usage-based (~cents/claim) |
 | Clearinghouse fees (Phase 2) | — | varies; budget per-provider or per-claim |
 | Monitoring / email / domain | ~$0–20/mo | ~$50/mo |
 | **Infra subtotal** | **~$25–50/mo** | **~$300–700/mo total** |
