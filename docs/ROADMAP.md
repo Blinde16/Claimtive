@@ -74,14 +74,14 @@ data and produce a real "recoverable dollars" number.
 - [ ] Handle **scale**: large files (100s–1000s of claims), background ingest,
       remove the 100-row display cap / add pagination
 - [x] **Contract/fee-schedule upload UI** (unlocks underpayment detection) — _done: CSV upload + rate management, 15 tests_
-- [ ] **CSV export** of flagged claims (so billers can act)
+- [x] **CSV export** of flagged claims (so billers can act) — _done: filtered export incl. worklist fields_
 - [ ] Ingestion stays **manual file drop** (already built)
 - [ ] Run **denial-only first**, then enable underpayment once contracts are loaded
 
 ### Phase 2 — Production (multi-clinic, hands-off) — _~1–3 months_
 - [ ] **Automated ingestion**: SFTP drop, then clearinghouse integration
 - [ ] **Appeal letter generation** (Claude) — drafts appeals from denial data
-- [ ] **Claim workflow**: assign, status (new/working/appealed/resolved), notes
+- [x] **Claim workflow**: assign, status (new/working/appealed/resolved), notes — _done: per-claim worklist panel + list filter_
 - [ ] **837 ↔ 835 matching** (link billed → paid per claim)
 - [ ] **Team / RBAC**: invite users, role enforcement, SSO option
 - [ ] **Reporting**: per-role dashboards, scheduled email summaries
