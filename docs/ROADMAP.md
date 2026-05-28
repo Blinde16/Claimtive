@@ -73,7 +73,7 @@ data and produce a real "recoverable dollars" number.
       (reversals, secondary/COB claims, payer-specific quirks)
 - [ ] Handle **scale**: large files (100s–1000s of claims), background ingest,
       remove the 100-row display cap / add pagination
-- [ ] **Contract/fee-schedule upload UI** (unlocks underpayment detection)
+- [x] **Contract/fee-schedule upload UI** (unlocks underpayment detection) — _done: CSV upload + rate management, 15 tests_
 - [ ] **CSV export** of flagged claims (so billers can act)
 - [ ] Ingestion stays **manual file drop** (already built)
 - [ ] Run **denial-only first**, then enable underpayment once contracts are loaded
