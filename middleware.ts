@@ -5,7 +5,9 @@ const PROTECTED_PREFIXES = [
   "/dashboard",
   "/claims",
   "/uploads",
-  "/contracts"
+  "/contracts",
+  "/team",
+  "/account"
 ];
 
 export async function middleware(request: NextRequest) {
@@ -27,5 +29,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/claims/:path*", "/uploads/:path*", "/contracts/:path*"]
+  matcher: [
+    "/dashboard/:path*",
+    "/claims/:path*",
+    "/uploads/:path*",
+    "/contracts/:path*",
+    "/team/:path*",
+    "/account/:path*"
+  ]
 };

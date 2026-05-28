@@ -8,7 +8,9 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
   { href: "/claims", label: "Claims", icon: "▤" },
   { href: "/uploads", label: "Uploads", icon: "↥" },
-  { href: "/contracts", label: "Contracts", icon: "▣" }
+  { href: "/contracts", label: "Contracts", icon: "▣" },
+  { href: "/team", label: "Team", icon: "◍" },
+  { href: "/account", label: "Account", icon: "◎" }
 ];
 
 export function Sidebar() {
