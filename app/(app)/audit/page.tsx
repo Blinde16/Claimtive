@@ -13,7 +13,8 @@ const ACTION_LABELS: Record<string, string> = {
   "member.add": "Added member",
   "member.remove": "Removed member",
   "member.password_reset": "Reset member password",
-  "password.change": "Changed password"
+  "password.change": "Changed password",
+  "assistant.query": "Asked the assistant"
 };
 
 function actionLabel(a: string): string {

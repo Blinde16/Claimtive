@@ -16,12 +16,14 @@ const DEFAULT_REGION = "us-central1";
 export interface ModelCallOptions {
   /** Tightly scoped instructions (the prompt template lives in the caller). */
   system: string;
-  /** User message containing only the de-identified AiInsightPayload (JSON). */
+  /** User message (de-identified payload for insights, or a chat turn). */
   user: string;
   /** Cap tokens to keep latency + cost predictable. */
   maxTokens?: number;
   /** 0 for deterministic-as-possible (we are doing analysis, not creative writing). */
   temperature?: number;
+  /** Force application/json output (insights). Set false for free-text chat. Default true. */
+  json?: boolean;
 }
 
 export class AiDisabledError extends Error {
@@ -72,12 +74,11 @@ export async function callModel(opts: ModelCallOptions): Promise<string> {
       systemInstruction: opts.system,
       temperature: opts.temperature ?? 0,
       maxOutputTokens: opts.maxTokens ?? 2048,
-      // Force valid JSON output (more reliable than asking in the prompt).
-      responseMimeType: "application/json",
+      // Force valid JSON output for structured callers (insights); chat uses text.
+      ...(opts.json === false ? {} : { responseMimeType: "application/json" }),
       // Gemini 2.5 "thinking" tokens count against maxOutputTokens and will
-      // truncate the JSON for a simple formatting task. We don't need
-      // reasoning here (the deterministic engine already did the math), so
-      // disable thinking to give the full budget to the output.
+      // truncate output for these simple tasks. We don't need reasoning (the
+      // deterministic engine did the math), so disable it for the full budget.
       thinkingConfig: { thinkingBudget: 0 }
     }
   });

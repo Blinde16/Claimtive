@@ -4,6 +4,7 @@ import { SESSION_COOKIE, verifySession } from "./lib/auth/session";
 const PROTECTED_PREFIXES = [
   "/dashboard",
   "/claims",
+  "/assistant",
   "/uploads",
   "/contracts",
   "/team",
@@ -33,6 +34,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/claims/:path*",
+    "/assistant/:path*",
     "/uploads/:path*",
     "/contracts/:path*",
     "/team/:path*",
