@@ -10,6 +10,7 @@ import {
 } from "@/lib/analytics/carc";
 import { StatusBadge } from "@/components/dashboard-ui";
 import { ClaimWorkPanel } from "@/components/ClaimWorkPanel";
+import { recordAudit } from "@/lib/audit";
 
 export const metadata = { title: "Claim detail" };
 
@@ -31,6 +32,16 @@ export default async function ClaimDetailPage({
     }
   });
   if (!claim) notFound();
+
+  // HIPAA access log: record that this user viewed this patient's claim.
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "claim.view",
+    targetType: "claim",
+    targetId: claim.id
+  });
 
   const isRemit = claim.ediFile.type === "X835";
 

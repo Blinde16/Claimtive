@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { isWorkStatus } from "@/lib/worklist";
+import { recordAudit } from "@/lib/audit";
 
 export interface ClaimWorkState {
   error?: string;
@@ -55,6 +56,16 @@ export async function updateClaimWork(
       assignedToId,
       workUpdatedAt: new Date()
     }
+  });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "claim.work.update",
+    targetType: "claim",
+    targetId: claimId,
+    detail: `status=${workStatus}`
   });
 
   revalidatePath(`/claims/${claimId}`);

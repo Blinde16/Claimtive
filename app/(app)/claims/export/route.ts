@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { buildClaimWhere } from "@/lib/claimsFilter";
 import { workStatusLabel } from "@/lib/worklist";
+import { recordAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,14 @@ export async function GET(request: Request) {
       { createdAt: "desc" }
     ],
     take: 10000
+  });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "claims.export",
+    detail: `${claims.length} claims exported to CSV`
   });
 
   const header = [

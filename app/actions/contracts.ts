@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { parseFeeSchedule, type ParsedRate } from "@/lib/contracts/parseFeeSchedule";
+import { recordAudit } from "@/lib/audit";
 
 export interface ContractUploadState {
   error?: string;
@@ -150,6 +151,14 @@ export async function uploadFeeSchedule(
         err instanceof Error ? `Failed to save contracts: ${err.message}` : "Failed to save contracts."
     };
   }
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "contract.upload",
+    detail: `${created} new, ${updated} updated rates across ${byPayer.size} payer(s)`
+  });
 
   revalidatePath("/contracts");
   // Underpayment numbers are computed at ingest time, so changing rates does not

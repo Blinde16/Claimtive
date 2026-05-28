@@ -53,6 +53,7 @@ model Organization {
   contracts Contract[]
   ediFiles  EdiFile[]
   claims    Claim[]
+  auditLogs AuditLog[]
 }
 
 model User {
@@ -231,6 +232,26 @@ model ServiceLine {
 
   @@index([claimId])
   @@index([procedureCode])
+}
+
+// HIPAA access/activity trail. Rows must never contain PHI — only action
+// metadata, target IDs, and the acting user. Survives user deletion via the
+// denormalized userEmail.
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  userEmail      String?
+  action         String // e.g. "auth.login", "claim.view", "file.upload", "claims.export"
+  targetType     String? // e.g. "claim", "ediFile", "user"
+  targetId       String?
+  detail         String? // short, non-PHI context
+  ipAddress      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([action])
 }
 
 // A CAS-segment adjustment (group code + CARC reason + amount).

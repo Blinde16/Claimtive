@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
+import { recordAudit } from "@/lib/audit";
 
 export interface TeamState {
   error?: string;
@@ -52,7 +53,7 @@ export async function addTeamMember(
   }
 
   const tempPassword = generateTempPassword();
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       organizationId: user.organizationId,
       email,
@@ -60,6 +61,16 @@ export async function addTeamMember(
       role: parsed.data.role,
       passwordHash: await hashPassword(tempPassword)
     }
+  });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "member.add",
+    targetType: "user",
+    targetId: created.id,
+    detail: `${email} as ${parsed.data.role}`
   });
 
   revalidatePath("/team");
@@ -104,6 +115,16 @@ export async function removeTeamMember(
   // FK relations (assignedClaims, uploadedFiles) are SetNull, so this is safe.
   await prisma.user.delete({ where: { id: target.id } });
 
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "member.remove",
+    targetType: "user",
+    targetId: target.id,
+    detail: target.name
+  });
+
   revalidatePath("/team");
   return { success: `Removed ${target.name}.` };
 }
@@ -131,6 +152,16 @@ export async function resetMemberPassword(
   await prisma.user.update({
     where: { id: target.id },
     data: { passwordHash: await hashPassword(tempPassword) }
+  });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "member.password_reset",
+    targetType: "user",
+    targetId: target.id,
+    detail: target.name
   });
 
   revalidatePath("/team");

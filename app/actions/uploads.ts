@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ingestEdiFile } from "@/lib/ingest";
+import { recordAudit } from "@/lib/audit";
 
 export interface UploadState {
   error?: string;
@@ -38,6 +39,15 @@ export async function uploadEdi(
     revalidatePath("/uploads");
     revalidatePath("/dashboard");
     revalidatePath("/claims");
+    await recordAudit({
+      organizationId: user.organizationId,
+      userId: user.id,
+      userEmail: user.email,
+      action: "file.upload",
+      targetType: "ediFile",
+      targetId: result.ediFileId,
+      detail: `${result.type} · ${result.claimCount} claims`
+    });
     return {
       success: `Processed ${file.name}: ${result.claimCount} ${
         result.type === "X835" ? "remittance" : "claim"

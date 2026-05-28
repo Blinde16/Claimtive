@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
+import { recordAudit } from "@/lib/audit";
 
 export interface AuthState {
   error?: string;
@@ -61,6 +62,12 @@ export async function login(
   }
 
   await startSession(user);
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "auth.login"
+  });
   redirect("/dashboard");
 }
 

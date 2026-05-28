@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { recordAudit } from "@/lib/audit";
 
 export interface AccountState {
   error?: string;
@@ -53,6 +54,13 @@ export async function changePassword(
   await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(parsed.data.newPassword) }
+  });
+
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "password.change"
   });
 
   return { success: "Password updated." };
