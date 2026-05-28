@@ -9,6 +9,7 @@ import {
 } from "@/lib/analytics/metrics";
 import { generateInsights } from "@/lib/insights";
 import { generateInsightsWithFallback } from "@/lib/ai/insights";
+import { OnboardingPanel } from "@/components/OnboardingPanel";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import {
   BarList,
@@ -49,22 +50,7 @@ export default async function DashboardPage() {
   );
 
   if (metrics.claimCount === 0) {
-    return (
-      <div className="mx-auto max-w-xl">
-        <div className="card p-10 text-center">
-          <h1 className="text-lg font-semibold text-slate-900">
-            No remittance data yet
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Upload an X12 835 remittance file to start surfacing denials and
-            underpayments.
-          </p>
-          <Link href="/uploads" className="btn-primary mt-6">
-            Upload EDI file
-          </Link>
-        </div>
-      </div>
-    );
+    return <OnboardingPanel />;
   }
 
   return (
