@@ -7,9 +7,22 @@ import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
 import { recordAudit } from "@/lib/audit";
+import {
+  consumeBackupCode,
+  decryptSecret,
+  MFA_COOKIE,
+  mfaCookieOptions,
+  signMfaChallenge,
+  verifyMfaChallenge,
+  verifyMfaToken
+} from "@/lib/auth/mfa";
 
 export interface AuthState {
   error?: string;
+  /** Password was correct but a TOTP code is required to finish signing in. */
+  mfaRequired?: boolean;
+  /** The MFA challenge expired — the user should re-enter email/password. */
+  mfaExpired?: boolean;
 }
 
 function slugify(input: string): string {
@@ -61,12 +74,76 @@ export async function login(
     return { error: "Invalid email or password." };
   }
 
+  // If MFA is on, hold off on the session — issue a short-lived challenge and
+  // ask for the authenticator code.
+  if (user.mfaEnabled) {
+    const challenge = await signMfaChallenge(user.id);
+    cookies().set({ ...mfaCookieOptions, value: challenge });
+    return { mfaRequired: true };
+  }
+
   await startSession(user);
   await recordAudit({
     organizationId: user.organizationId,
     userId: user.id,
     userEmail: user.email,
     action: "auth.login"
+  });
+  redirect("/dashboard");
+}
+
+export async function verifyMfaLogin(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const token = cookies().get(MFA_COOKIE)?.value;
+  if (!token) {
+    return { error: "Your sign-in timed out. Please enter your email and password again.", mfaExpired: true };
+  }
+  const userId = await verifyMfaChallenge(token);
+  if (!userId) {
+    cookies().delete(MFA_COOKIE);
+    return { error: "Your sign-in timed out. Please enter your email and password again.", mfaExpired: true };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.mfaEnabled || !user.mfaSecret) {
+    cookies().delete(MFA_COOKIE);
+    return { error: "Two-factor isn't configured. Please sign in again.", mfaExpired: true };
+  }
+
+  const code = (formData.get("code") as string | null)?.trim() ?? "";
+  if (!code) return { error: "Enter your 6-digit code.", mfaRequired: true };
+
+  let ok = false;
+  let usedBackup = false;
+  const secret = decryptSecret(user.mfaSecret);
+  if (/^\d{6}$/.test(code)) {
+    ok = verifyMfaToken(code, secret);
+  }
+  if (!ok) {
+    const bc = consumeBackupCode(code, user.mfaBackupCodes);
+    if (bc.ok) {
+      ok = true;
+      usedBackup = true;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { mfaBackupCodes: bc.remaining }
+      });
+    }
+  }
+  if (!ok) {
+    return { error: "Invalid code. Try again, or use a backup code.", mfaRequired: true };
+  }
+
+  cookies().delete(MFA_COOKIE);
+  await startSession(user);
+  await recordAudit({
+    organizationId: user.organizationId,
+    userId: user.id,
+    userEmail: user.email,
+    action: "auth.login",
+    detail: usedBackup ? "mfa (backup code)" : "mfa"
   });
   redirect("/dashboard");
 }

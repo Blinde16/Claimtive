@@ -1,10 +1,16 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/db";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
+import { MfaManager } from "@/components/MfaManager";
 
 export const metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const user = (await getCurrentUser())!;
+  const record = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { mfaEnabled: true }
+  });
 
   return (
     <div className="space-y-6">
@@ -14,6 +20,13 @@ export default async function AccountPage() {
           {user.name} · {user.email} · {user.role === "OWNER" ? "Owner" : "Member"}
         </p>
       </div>
+
+      <section className="card p-6">
+        <h2 className="mb-4 text-sm font-semibold text-slate-900">
+          Two-factor authentication
+        </h2>
+        <MfaManager enabled={record?.mfaEnabled ?? false} />
+      </section>
 
       <section className="card p-6">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">

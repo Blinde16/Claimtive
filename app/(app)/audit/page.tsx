@@ -14,7 +14,10 @@ const ACTION_LABELS: Record<string, string> = {
   "member.remove": "Removed member",
   "member.password_reset": "Reset member password",
   "password.change": "Changed password",
-  "assistant.query": "Asked the assistant"
+  "assistant.query": "Asked the assistant",
+  "mfa.enabled": "Enabled two-factor",
+  "mfa.disabled": "Disabled two-factor",
+  "onboarding.sample_loaded": "Loaded sample data"
 };
 
 function actionLabel(a: string): string {

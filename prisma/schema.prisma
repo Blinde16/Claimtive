@@ -64,6 +64,11 @@ model User {
   passwordHash   String
   name           String
   role           UserRole     @default(OWNER)
+  // TOTP multi-factor auth. mfaSecret is AES-GCM encrypted at the app layer;
+  // mfaBackupCodes are sha256-hashed one-time recovery codes.
+  mfaEnabled     Boolean      @default(false)
+  mfaSecret      String?
+  mfaBackupCodes String[]     @default([])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
