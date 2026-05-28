@@ -1,86 +1,104 @@
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/dashboard-ui";
+import {
+  buildClaimWhere,
+  CLAIM_FILTERS,
+  normalizeFilter
+} from "@/lib/claimsFilter";
+import {
+  WORK_STATUSES,
+  WORK_STATUS_BADGE,
+  WORK_STATUS_LABELS,
+  isWorkStatus
+} from "@/lib/worklist";
 
 export const metadata = { title: "Claims" };
-
-type Filter = "all" | "denied" | "underpaid" | "clean";
-
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "denied", label: "Denied" },
-  { key: "underpaid", label: "Underpaid" },
-  { key: "clean", label: "Clean" }
-];
 
 export default async function ClaimsPage({
   searchParams
 }: {
-  searchParams: { filter?: string; q?: string };
+  searchParams: { filter?: string; q?: string; status?: string };
 }) {
   const user = (await getCurrentUser())!;
   const orgId = user.organizationId;
-  const filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ??
-    "all") as Filter;
+  const filter = normalizeFilter(searchParams.filter);
   const q = (searchParams.q ?? "").trim();
+  const status =
+    searchParams.status && isWorkStatus(searchParams.status)
+      ? searchParams.status
+      : "";
 
-  const where: Prisma.ClaimWhereInput = { organizationId: orgId };
-  if (filter === "denied") where.isDenied = true;
-  else if (filter === "underpaid") where.isUnderpaid = true;
-  else if (filter === "clean") {
-    where.isDenied = false;
-    where.isUnderpaid = false;
-    where.ediFile = { type: "X835" };
-  }
-  if (q) {
-    where.OR = [
-      { patientControlNumber: { contains: q, mode: "insensitive" } },
-      { patientName: { contains: q, mode: "insensitive" } },
-      { payerClaimControlNumber: { contains: q, mode: "insensitive" } }
-    ];
-  }
+  const where = buildClaimWhere(orgId, { filter, q, status });
 
   const claims = await prisma.claim.findMany({
     where,
-    include: { ediFile: { select: { type: true } } },
-    orderBy: [{ deniedAmount: "desc" }, { underpaidAmount: "desc" }, { createdAt: "desc" }],
+    include: {
+      ediFile: { select: { type: true } },
+      assignedTo: { select: { name: true } }
+    },
+    orderBy: [
+      { deniedAmount: "desc" },
+      { underpaidAmount: "desc" },
+      { createdAt: "desc" }
+    ],
     take: 100
   });
 
-  const buildHref = (key: Filter) => {
+  const queryString = (overrides: Record<string, string>) => {
     const params = new URLSearchParams();
-    if (key !== "all") params.set("filter", key);
-    if (q) params.set("q", q);
-    const s = params.toString();
+    const merged = { filter, q, status, ...overrides };
+    if (merged.filter && merged.filter !== "all") params.set("filter", merged.filter);
+    if (merged.q) params.set("q", merged.q);
+    if (merged.status) params.set("status", merged.status);
+    return params.toString();
+  };
+
+  const buildHref = (key: string) => {
+    const s = queryString({ filter: key });
     return s ? `/claims?${s}` : "/claims";
   };
+
+  const exportHref = `/claims/export${queryString({}) ? `?${queryString({})}` : ""}`;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-slate-900">Claims</h1>
-        <form className="flex gap-2" action="/claims">
-          {filter !== "all" ? (
-            <input type="hidden" name="filter" value={filter} />
-          ) : null}
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Search claim ID or patient"
-            className="input w-64"
-          />
-          <button type="submit" className="btn-secondary">
-            Search
-          </button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <form className="flex flex-wrap gap-2" action="/claims">
+            {filter !== "all" ? (
+              <input type="hidden" name="filter" value={filter} />
+            ) : null}
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Search claim ID or patient"
+              className="input w-56"
+            />
+            <select name="status" defaultValue={status} className="input">
+              <option value="">All statuses</option>
+              {WORK_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {WORK_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="btn-secondary">
+              Search
+            </button>
+          </form>
+          <a href={exportHref} className="btn-secondary" download>
+            Export CSV
+          </a>
+        </div>
       </div>
 
       <div className="flex gap-2">
-        {FILTERS.map((f) => (
+        {CLAIM_FILTERS.map((f) => (
           <Link
             key={f.key}
             href={buildHref(f.key)}
@@ -104,7 +122,8 @@ export default async function ClaimsPage({
                 <th className="px-4 py-3 font-medium">Patient</th>
                 <th className="px-4 py-3 font-medium">Payer</th>
                 <th className="px-4 py-3 font-medium">Service date</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Outcome</th>
+                <th className="px-4 py-3 font-medium">Work</th>
                 <th className="px-4 py-3 text-right font-medium">Billed</th>
                 <th className="px-4 py-3 text-right font-medium">Paid</th>
                 <th className="px-4 py-3 text-right font-medium">Denied</th>
@@ -114,7 +133,7 @@ export default async function ClaimsPage({
             <tbody>
               {claims.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
                     No claims match this view.
                   </td>
                 </tr>
@@ -149,6 +168,16 @@ export default async function ClaimsPage({
                       ) : (
                         <StatusBadge denied={c.isDenied} underpaid={c.isUnderpaid} />
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {isWorkStatus(c.workStatus) ? (
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${WORK_STATUS_BADGE[c.workStatus]}`}
+                          title={c.assignedTo?.name ? `Assigned: ${c.assignedTo.name}` : undefined}
+                        >
+                          {WORK_STATUS_LABELS[c.workStatus]}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {formatCurrency(Number(c.totalCharge))}

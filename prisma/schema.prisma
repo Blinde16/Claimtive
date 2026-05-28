@@ -32,6 +32,15 @@ enum AdjustmentLevel {
   SERVICE
 }
 
+// Biller worklist status for a flagged claim.
+enum WorkStatus {
+  NEW
+  IN_PROGRESS
+  APPEALED
+  RESOLVED
+  WONT_PURSUE
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -57,7 +66,8 @@ model User {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  uploadedFiles EdiFile[]
+  uploadedFiles  EdiFile[]
+  assignedClaims Claim[]  @relation("ClaimAssignee")
 
   @@index([organizationId])
 }
@@ -167,6 +177,13 @@ model Claim {
   primaryDenialCode       String?
   primaryDenialReason     String?
 
+  // Biller worklist fields.
+  workStatus              WorkStatus   @default(NEW)
+  workNote                String?
+  assignedToId            String?
+  assignedTo              User?        @relation("ClaimAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  workUpdatedAt           DateTime?
+
   createdAt               DateTime     @default(now())
 
   serviceLines ServiceLine[]
@@ -176,6 +193,8 @@ model Claim {
   @@index([ediFileId])
   @@index([isDenied])
   @@index([isUnderpaid])
+  @@index([workStatus])
+  @@index([assignedToId])
 }
 
 // A service line within a claim (835 SVC loop).

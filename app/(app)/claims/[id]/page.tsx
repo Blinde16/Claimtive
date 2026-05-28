@@ -9,6 +9,7 @@ import {
   GROUP_CODES
 } from "@/lib/analytics/carc";
 import { StatusBadge } from "@/components/dashboard-ui";
+import { ClaimWorkPanel } from "@/components/ClaimWorkPanel";
 
 export const metadata = { title: "Claim detail" };
 
@@ -32,6 +33,13 @@ export default async function ClaimDetailPage({
   if (!claim) notFound();
 
   const isRemit = claim.ediFile.type === "X835";
+
+  // Org members for the worklist assignee dropdown.
+  const users = await prisma.user.findMany({
+    where: { organizationId: user.organizationId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" }
+  });
 
   return (
     <div className="space-y-6">
@@ -106,6 +114,19 @@ export default async function ClaimDetailPage({
           <span>Source: {claim.ediFile.fileName}</span>
         </div>
       </div>
+
+      <section className="card p-6">
+        <h2 className="mb-4 text-sm font-semibold text-slate-900">
+          Worklist
+        </h2>
+        <ClaimWorkPanel
+          claimId={claim.id}
+          workStatus={claim.workStatus}
+          workNote={claim.workNote}
+          assignedToId={claim.assignedToId}
+          users={users}
+        />
+      </section>
 
       <section className="card p-6">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">
