@@ -147,6 +147,142 @@ export const CARC_CODES: Record<string, CarcEntry> = {
   "253": {
     description: "Sequestration — federal payment reduction",
     category: "Contractual"
+  },
+  "5": {
+    description: "Procedure code inconsistent with the place of service",
+    category: "Coding"
+  },
+  "6": {
+    description: "Procedure/revenue code inconsistent with the patient's age",
+    category: "Coding"
+  },
+  "8": {
+    description: "Procedure code inconsistent with the provider type/specialty",
+    category: "Coding"
+  },
+  "9": {
+    description: "Diagnosis inconsistent with the patient's age",
+    category: "Coding"
+  },
+  "10": {
+    description: "Diagnosis inconsistent with the patient's gender",
+    category: "Coding"
+  },
+  "15": {
+    description: "Authorization number missing, invalid, or does not apply",
+    category: "Authorization"
+  },
+  "19": {
+    description: "Work-related injury — liability of Workers' Compensation",
+    category: "Coordination of Benefits"
+  },
+  "31": {
+    description: "Patient cannot be identified as our insured",
+    category: "Eligibility"
+  },
+  "38": {
+    description: "Services not authorized by designated/network providers",
+    category: "Authorization"
+  },
+  "39": {
+    description: "Services denied at the time authorization was requested",
+    category: "Authorization"
+  },
+  "40": {
+    description: "Charges do not meet qualifications for emergent/urgent care",
+    category: "Medical Necessity"
+  },
+  "55": {
+    description: "Procedure/treatment deemed experimental/investigational",
+    category: "Medical Necessity"
+  },
+  "58": {
+    description: "Treatment rendered in an inappropriate/invalid place of service",
+    category: "Coding"
+  },
+  "95": {
+    description: "Plan procedures not followed",
+    category: "Authorization"
+  },
+  "107": {
+    description: "Related or qualifying claim/service not identified on this claim",
+    category: "Missing Information"
+  },
+  "110": {
+    description: "Billing date predates service date",
+    category: "Coding"
+  },
+  "125": {
+    description: "Submission/billing error(s)",
+    category: "Missing Information"
+  },
+  "140": {
+    description: "Patient health ID number and name do not match",
+    category: "Eligibility"
+  },
+  "146": {
+    description: "Diagnosis invalid for the date(s) of service reported",
+    category: "Coding"
+  },
+  "147": {
+    description: "Provider contracted/negotiated rate expired or not on file",
+    category: "Contractual"
+  },
+  "167": {
+    description: "This (these) diagnosis(es) is (are) not covered",
+    category: "Non-Covered"
+  },
+  "170": {
+    description: "Payment denied when performed/billed by this type of provider",
+    category: "Non-Covered"
+  },
+  "181": {
+    description: "Procedure code was invalid on the date of service",
+    category: "Coding"
+  },
+  "182": {
+    description: "Procedure modifier was invalid on the date of service",
+    category: "Coding"
+  },
+  "183": {
+    description: "The referring provider is not eligible to refer the service",
+    category: "Authorization"
+  },
+  "185": {
+    description: "The rendering provider is not eligible to perform the service",
+    category: "Eligibility"
+  },
+  "199": {
+    description: "Revenue code and procedure code do not match",
+    category: "Coding"
+  },
+  "200": {
+    description: "Expenses incurred during lapse in coverage",
+    category: "Eligibility"
+  },
+  "226": {
+    description: "Information requested from the provider was not provided/incomplete",
+    category: "Documentation"
+  },
+  "227": {
+    description: "Information requested from the patient was not provided/incomplete",
+    category: "Documentation"
+  },
+  "234": {
+    description: "This procedure is not paid separately",
+    category: "Bundling"
+  },
+  "236": {
+    description: "Procedure/modifier combination not compatible per NCCI edits",
+    category: "Bundling"
+  },
+  "242": {
+    description: "Services not provided by network/primary care providers",
+    category: "Authorization"
+  },
+  "243": {
+    description: "Services not authorized by network/primary care providers",
+    category: "Authorization"
   }
 };
 
