@@ -131,6 +131,8 @@ model EdiFile {
   status          FileStatus   @default(PENDING)
   controlNumber   String?
   byteSize        Int          @default(0)
+  // SHA-256 of the raw file content, used to detect duplicate re-uploads.
+  contentHash     String?
   errorMessage    String?
   // Aggregates computed at ingest time for fast dashboard reads.
   claimCount      Int          @default(0)
@@ -143,6 +145,7 @@ model EdiFile {
   claims Claim[]
 
   @@index([organizationId])
+  @@index([organizationId, contentHash])
 }
 
 // A claim's payment outcome (primarily sourced from an 835 CLP loop).

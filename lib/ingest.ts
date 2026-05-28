@@ -1,9 +1,41 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { analyzeClaim, ContractRateLookup } from "./analytics/denials";
 import { parse835 } from "./edi/parse835";
 import { parse837 } from "./edi/parse837";
 import { detectTransactionType, tokenize } from "./edi/tokenizer";
+
+// Guard against pathologically large files blowing the ingest transaction.
+// A single 835 with more claims than this should be split before upload.
+const MAX_CLAIMS_PER_FILE = 5000;
+
+/** Thrown when the exact same file content was already ingested for this org. */
+export class DuplicateFileError extends Error {
+  constructor(
+    public readonly fileName: string,
+    public readonly uploadedAt: Date
+  ) {
+    super(
+      `This file was already uploaded (${fileName} on ${uploadedAt.toISOString().slice(0, 10)}).`
+    );
+    this.name = "DuplicateFileError";
+  }
+}
+
+/** Thrown when a file parses but contains more claims than we ingest in one pass. */
+export class TooManyClaimsError extends Error {
+  constructor(public readonly count: number) {
+    super(
+      `File contains ${count} claims, which exceeds the ${MAX_CLAIMS_PER_FILE}-claim limit per upload. Please split it into smaller files.`
+    );
+    this.name = "TooManyClaimsError";
+  }
+}
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content, "utf8").digest("hex");
+}
 
 export interface IngestInput {
   organizationId: string;
@@ -71,8 +103,14 @@ function toDate(value?: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-async function ingest835(input: IngestInput): Promise<IngestResult> {
+async function ingest835(
+  input: IngestInput,
+  contentHash: string
+): Promise<IngestResult> {
   const parsed = parse835(input.content);
+  if (parsed.claims.length > MAX_CLAIMS_PER_FILE) {
+    throw new TooManyClaimsError(parsed.claims.length);
+  }
   const rateLookup = await buildRateLookup(input.organizationId);
 
   return prisma.$transaction(
@@ -92,6 +130,7 @@ async function ingest835(input: IngestInput): Promise<IngestResult> {
           type: "X835",
           status: "PENDING",
           controlNumber: parsed.controlNumber,
+          contentHash,
           byteSize: Buffer.byteLength(input.content, "utf8")
         }
       });
@@ -199,12 +238,18 @@ async function ingest835(input: IngestInput): Promise<IngestResult> {
         totalUnderpaid
       };
     },
-    { timeout: 30000 }
+    { timeout: 120000 }
   );
 }
 
-async function ingest837(input: IngestInput): Promise<IngestResult> {
+async function ingest837(
+  input: IngestInput,
+  contentHash: string
+): Promise<IngestResult> {
   const parsed = parse837(input.content);
+  if (parsed.claims.length > MAX_CLAIMS_PER_FILE) {
+    throw new TooManyClaimsError(parsed.claims.length);
+  }
   const rateLookup = await buildRateLookup(input.organizationId);
 
   return prisma.$transaction(
@@ -223,6 +268,7 @@ async function ingest837(input: IngestInput): Promise<IngestResult> {
           type: "X837",
           status: "PENDING",
           controlNumber: parsed.controlNumber,
+          contentHash,
           byteSize: Buffer.byteLength(input.content, "utf8")
         }
       });
@@ -276,15 +322,46 @@ async function ingest837(input: IngestInput): Promise<IngestResult> {
         totalUnderpaid: 0
       };
     },
-    { timeout: 30000 }
+    { timeout: 120000 }
   );
 }
 
 export async function ingestEdiFile(input: IngestInput): Promise<IngestResult> {
-  const type = detectTransactionType(tokenize(input.content));
-  if (type === "X835") return ingest835(input);
-  if (type === "X837") return ingest837(input);
-  throw new Error(
-    "Unrecognized EDI file. Expected an X12 835 (remittance) or 837 (claim)."
-  );
+  if (!input.content || input.content.trim() === "") {
+    throw new Error("The file is empty.");
+  }
+
+  // Detect the transaction type up front so a non-EDI file fails clearly.
+  let type: "X835" | "X837" | "UNKNOWN";
+  try {
+    type = detectTransactionType(tokenize(input.content));
+  } catch {
+    throw new Error(
+      "Could not read this file as X12 EDI. Expected an 835 (remittance) or 837 (claim)."
+    );
+  }
+  if (type !== "X835" && type !== "X837") {
+    throw new Error(
+      "Unrecognized EDI file. Expected an X12 835 (remittance) or 837 (claim)."
+    );
+  }
+
+  // Duplicate guard: same exact content already ingested for this org.
+  const contentHash = sha256(input.content);
+  const existing = await prisma.ediFile.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      contentHash,
+      status: "PROCESSED"
+    },
+    select: { fileName: true, createdAt: true },
+    orderBy: { createdAt: "asc" }
+  });
+  if (existing) {
+    throw new DuplicateFileError(existing.fileName, existing.createdAt);
+  }
+
+  return type === "X835"
+    ? ingest835(input, contentHash)
+    : ingest837(input, contentHash);
 }
