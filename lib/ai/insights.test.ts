@@ -11,7 +11,7 @@ vi.mock("./vertex", () => ({
     }
   },
   isAiEnabled: vi.fn(),
-  callClaude: vi.fn()
+  callModel: vi.fn()
 }));
 
 import * as vertex from "./vertex";
@@ -88,12 +88,12 @@ describe("generateAiInsights", () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(false);
     const out = await generateAiInsights(input);
     expect(out).toBeNull();
-    expect(vertex.callClaude).not.toHaveBeenCalled();
+    expect(vertex.callModel).not.toHaveBeenCalled();
   });
 
   it("returns parsed insights on a clean, verified Claude response", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue(goodAiResponse);
+    vi.mocked(vertex.callModel).mockResolvedValue(goodAiResponse);
     const out = await generateAiInsights(input);
     expect(out).not.toBeNull();
     expect(out).toHaveLength(3);
@@ -103,7 +103,7 @@ describe("generateAiInsights", () => {
 
   it("strips markdown code fences before parsing", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue(
+    vi.mocked(vertex.callModel).mockResolvedValue(
       "```json\n" + goodAiResponse + "\n```"
     );
     const out = await generateAiInsights(input);
@@ -113,14 +113,14 @@ describe("generateAiInsights", () => {
 
   it("returns null on malformed JSON", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue("not actually JSON at all");
+    vi.mocked(vertex.callModel).mockResolvedValue("not actually JSON at all");
     const out = await generateAiInsights(input);
     expect(out).toBeNull();
   });
 
   it("returns null when Claude hallucinates a dollar amount", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue(
+    vi.mocked(vertex.callModel).mockResolvedValue(
       JSON.stringify({
         insights: [
           {
@@ -137,14 +137,14 @@ describe("generateAiInsights", () => {
 
   it("returns null when Claude throws", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockRejectedValue(new Error("quota exceeded"));
+    vi.mocked(vertex.callModel).mockRejectedValue(new Error("quota exceeded"));
     const out = await generateAiInsights(input);
     expect(out).toBeNull();
   });
 
   it("returns null when response shape is wrong (zod fail)", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue(
+    vi.mocked(vertex.callModel).mockResolvedValue(
       JSON.stringify({ insights: [{ wrong: "shape" }] })
     );
     const out = await generateAiInsights(input);
@@ -159,7 +159,7 @@ describe("generateInsightsWithFallback", () => {
 
   it("uses AI when AI succeeds", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue(goodAiResponse);
+    vi.mocked(vertex.callModel).mockResolvedValue(goodAiResponse);
     const out = await generateInsightsWithFallback(input, ruleBased);
     expect(out[0].title).toContain("$2,435"); // AI output
   });
@@ -172,7 +172,7 @@ describe("generateInsightsWithFallback", () => {
 
   it("falls back when AI hallucinates", async () => {
     vi.mocked(vertex.isAiEnabled).mockReturnValue(true);
-    vi.mocked(vertex.callClaude).mockResolvedValue(
+    vi.mocked(vertex.callModel).mockResolvedValue(
       JSON.stringify({
         insights: [
           { title: "$9,999 invented", detail: "$9,999 again", severity: "high" }

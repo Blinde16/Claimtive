@@ -11,7 +11,7 @@ const nextConfig = {
       "@prisma/adapter-pg",
       "pg",
       "@google-cloud/cloud-sql-connector",
-      "@anthropic-ai/vertex-sdk"
+      "@google/genai"
     ]
   }
 };

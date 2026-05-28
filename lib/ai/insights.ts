@@ -20,7 +20,7 @@ import {
 } from "../analytics/metrics";
 import { buildInsightPayload } from "./deidentify";
 import { verifyInsightOutput } from "./verify";
-import { AiDisabledError, callClaude, isAiEnabled } from "./vertex";
+import { AiDisabledError, callModel, isAiEnabled } from "./vertex";
 
 const InsightSchema = z.object({
   title: z.string().min(1).max(160),
@@ -80,7 +80,7 @@ export async function generateAiInsights(
 
   let raw: string;
   try {
-    raw = await callClaude({
+    raw = await callModel({
       system: SYSTEM_PROMPT,
       user: JSON.stringify(payload),
       maxTokens: 1200,
@@ -88,7 +88,7 @@ export async function generateAiInsights(
     });
   } catch (err) {
     if (err instanceof AiDisabledError) return null;
-    console.error("[ai/insights] Claude call failed:", err);
+    console.error("[ai/insights] model call failed:", err);
     return null;
   }
 

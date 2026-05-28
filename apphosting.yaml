@@ -47,10 +47,14 @@ env:
     availability:
       - RUNTIME
   - variable: VERTEX_REGION
-    value: us-east5
+    value: us-central1
     availability:
       - RUNTIME
-  - variable: VERTEX_CLAUDE_MODEL
-    value: claude-sonnet-4-6@default
+  # Gemini (first-party) gets generous default quota on new projects — unlike
+  # Anthropic-on-Vertex which defaults to ~0. Flash is cheap and more than
+  # enough for grounded summaries; the de-id + verify safety layer is model-
+  # agnostic, so this is a pure config swap.
+  - variable: VERTEX_MODEL
+    value: gemini-2.5-flash
     availability:
       - RUNTIME
