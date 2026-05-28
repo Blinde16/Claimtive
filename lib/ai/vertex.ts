@@ -90,6 +90,72 @@ export async function callModel(opts: ModelCallOptions): Promise<string> {
   return text;
 }
 
+export interface PdfModelCallOptions {
+  /** Tightly scoped instructions for the extraction task. */
+  system: string;
+  /** Text prompt that accompanies the document (what to extract / output shape). */
+  user: string;
+  /** Base64-encoded PDF bytes. */
+  pdfBase64: string;
+  /** Cap tokens. Fee schedules can be long, so this defaults higher than chat. */
+  maxTokens?: number;
+  temperature?: number;
+}
+
+/**
+ * Call Gemini with an inline PDF document plus a text instruction, returning
+ * JSON. Used for contract / fee-schedule extraction: Gemini reads the document
+ * and emits structured rate rows that a human reviews before they ever touch
+ * the underpayment math.
+ *
+ * Safety note: fee schedules are pricing/contract data (CPT codes, dollar
+ * amounts, payer names) — NOT patient PHI — so the document is sent as-is.
+ * There are no patient identifiers to de-identify here. Stays under the GCP BAA.
+ */
+export async function callModelWithPdf(
+  opts: PdfModelCallOptions
+): Promise<string> {
+  if (!isAiEnabled()) {
+    throw new AiDisabledError(
+      "AI_ENABLED / VERTEX_PROJECT_ID / VERTEX_MODEL not all set"
+    );
+  }
+
+  const { GoogleGenAI } = await import("@google/genai");
+
+  const ai = new GoogleGenAI({
+    vertexai: true,
+    project: process.env.VERTEX_PROJECT_ID!,
+    location: process.env.VERTEX_REGION ?? DEFAULT_REGION
+  });
+
+  const response = await ai.models.generateContent({
+    model: process.env.VERTEX_MODEL!,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: "application/pdf", data: opts.pdfBase64 } },
+          { text: opts.user }
+        ]
+      }
+    ],
+    config: {
+      systemInstruction: opts.system,
+      temperature: opts.temperature ?? 0,
+      maxOutputTokens: opts.maxTokens ?? 8192,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 }
+    }
+  });
+
+  const text = extractText(response);
+  if (!text) {
+    throw new Error("vertex/gemini: empty completion text (PDF extraction)");
+  }
+  return text;
+}
+
 /** Robustly pull the text out of a GenerateContentResponse across SDK versions. */
 function extractText(response: unknown): string {
   const r = response as {

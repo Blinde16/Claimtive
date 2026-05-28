@@ -1,12 +1,15 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
+import { isAiEnabled } from "@/lib/ai/vertex";
 import { formatCurrencyPrecise } from "@/lib/format";
 import { ContractUploadForm } from "@/components/ContractUploadForm";
+import { ContractPdfExtractor } from "@/components/ContractPdfExtractor";
 
 export const metadata = { title: "Contracts" };
 
 export default async function ContractsPage() {
   const user = (await getCurrentUser())!;
+  const aiEnabled = isAiEnabled();
   const payers = await prisma.payer.findMany({
     where: { organizationId: user.organizationId },
     include: {
@@ -42,6 +45,25 @@ export default async function ContractsPage() {
         </p>
         <ContractUploadForm />
       </section>
+
+      {aiEnabled ? (
+        <section className="card p-6">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Extract rates from a contract PDF
+            </h2>
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+              AI-assisted
+            </span>
+          </div>
+          <p className="mb-4 mt-1 text-xs text-slate-500">
+            No clean spreadsheet? Upload the contract PDF and Claimtive will read
+            the fee schedule and propose rates. You review and confirm every rate
+            before it powers underpayment detection.
+          </p>
+          <ContractPdfExtractor />
+        </section>
+      ) : null}
 
       {payers.length === 0 ? (
         <div className="card p-10 text-center text-slate-500">
