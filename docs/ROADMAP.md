@@ -69,12 +69,12 @@ data and produce a real "recoverable dollars" number.
 - [ ] Sign GCP BAA + clinic BAA
 - [ ] Add **MFA** + **audit logging**
 - [ ] Verify Cloud SQL automated backups + test a restore
-- [ ] **Harden the 835/837 parser** against the clinic's real files
-      (reversals, secondary/COB claims, payer-specific quirks)
-- [ ] Handle **scale**: large files (100s–1000s of claims), background ingest,
-      remove the 100-row display cap / add pagination
+- [~] **Harden the 835/837 parser** against the clinic's real files — _done: dedup by content hash (no double-counting on re-upload), >5000-claim guard, 30s→120s tx timeout, clearer empty/non-EDI errors. Still TODO: reversals/COB-specific handling as real files surface them._
+- [~] Handle **scale**: large files — _done: claim-count guard + longer timeout. Still TODO: background ingest + remove the 100-row display cap / pagination._
 - [x] **Contract/fee-schedule upload UI** (unlocks underpayment detection) — _done: CSV upload + rate management, 15 tests_
 - [x] **CSV export** of flagged claims (so billers can act) — _done: filtered export incl. worklist fields_
+- [x] **Team invite + member management** — _done: owner adds/removes members, one-time temp passwords_
+- [x] **Password / account recovery** — _done: self-serve change password + owner-reset member password (no email dependency)_
 - [ ] Ingestion stays **manual file drop** (already built)
 - [ ] Run **denial-only first**, then enable underpayment once contracts are loaded
 
@@ -83,7 +83,7 @@ data and produce a real "recoverable dollars" number.
 - [ ] **Appeal letter generation** (Claude) — drafts appeals from denial data
 - [x] **Claim workflow**: assign, status (new/working/appealed/resolved), notes — _done: per-claim worklist panel + list filter_
 - [ ] **837 ↔ 835 matching** (link billed → paid per claim)
-- [ ] **Team / RBAC**: invite users, role enforcement, SSO option
+- [~] **Team / RBAC**: invite users, role enforcement, SSO option — _done: invite + OWNER/MEMBER enforcement. Still TODO: SSO._
 - [ ] **Reporting**: per-role dashboards, scheduled email summaries
 - [ ] **Private networking** for Cloud SQL (VPC), least-privilege IAM pass
 - [ ] Independent **penetration test**
