@@ -7,6 +7,10 @@ import {
   getDenialReasonBreakdown,
   getPayerBreakdown
 } from "@/lib/analytics/metrics";
+import {
+  getCobFollowUps,
+  getPatientResponsibilitySummary
+} from "@/lib/analytics/leakage";
 import { getUnadjudicatedClaims } from "@/lib/analytics/matching";
 import { generateInsights } from "@/lib/insights";
 import { generateInsightsWithFallback } from "@/lib/ai/insights";
@@ -26,23 +30,33 @@ export default async function DashboardPage() {
   const user = (await getCurrentUser())!;
   const orgId = user.organizationId;
 
-  const [metrics, categories, reasons, payers, flagged, unadjudicated] =
-    await Promise.all([
-      getDashboardMetrics(orgId),
-      getCategoryBreakdown(orgId),
-      getDenialReasonBreakdown(orgId),
-      getPayerBreakdown(orgId),
-      prisma.claim.findMany({
-        where: {
-          organizationId: orgId,
-          ediFile: { type: "X835" },
-          OR: [{ isDenied: true }, { isUnderpaid: true }]
-        },
-        orderBy: [{ deniedAmount: "desc" }, { underpaidAmount: "desc" }],
-        take: 8
-      }),
-      getUnadjudicatedClaims(orgId)
-    ]);
+  const [
+    metrics,
+    categories,
+    reasons,
+    payers,
+    flagged,
+    unadjudicated,
+    patientResp,
+    cob
+  ] = await Promise.all([
+    getDashboardMetrics(orgId),
+    getCategoryBreakdown(orgId),
+    getDenialReasonBreakdown(orgId),
+    getPayerBreakdown(orgId),
+    prisma.claim.findMany({
+      where: {
+        organizationId: orgId,
+        ediFile: { type: "X835" },
+        OR: [{ isDenied: true }, { isUnderpaid: true }]
+      },
+      orderBy: [{ deniedAmount: "desc" }, { underpaidAmount: "desc" }],
+      take: 8
+    }),
+    getUnadjudicatedClaims(orgId),
+    getPatientResponsibilitySummary(orgId),
+    getCobFollowUps(orgId)
+  ]);
 
   // Try AI-generated insights first; on any failure (disabled, error, or the
   // post-gen verifier rejecting a hallucination) fall back to the deterministic
@@ -210,6 +224,87 @@ export default async function DashboardPage() {
           </table>
         </div>
       </SectionCard>
+
+      {patientResp.claimCount > 0 || cob.count > 0 ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {patientResp.claimCount > 0 ? (
+            <SectionCard
+              title="Patient responsibility (collectible)"
+              action={
+                <span className="text-sm font-semibold text-slate-700">
+                  {formatCurrency(patientResp.total)} ·{" "}
+                  {patientResp.claimCount} claim
+                  {patientResp.claimCount === 1 ? "" : "s"}
+                </span>
+              }
+            >
+              <p className="mb-3 text-xs text-slate-500">
+                Balances the payer assigned to patients — deductible, coinsurance,
+                and copay. Not a payer denial, but collectible revenue via patient
+                statements. Tracked here so it isn&apos;t left on the table.
+              </p>
+              <BarList
+                items={patientResp.byType.map((t) => ({
+                  label: t.label,
+                  value: t.amount,
+                  meta: `${t.count} adjustment${t.count === 1 ? "" : "s"}`
+                }))}
+                emptyLabel="No patient-responsibility detail available."
+              />
+            </SectionCard>
+          ) : null}
+
+          {cob.count > 0 ? (
+            <SectionCard
+              title="Coordination of benefits — verify secondary billed"
+              action={
+                <span className="text-sm font-semibold text-amber-600">
+                  {formatCurrency(cob.amountToCoordinate)} · {cob.count} claim
+                  {cob.count === 1 ? "" : "s"}
+                </span>
+              }
+            >
+              <p className="mb-3 text-xs text-slate-500">
+                The primary payer indicated another payer is responsible (CARC
+                22/109/19). Confirm the secondary claim was billed. These dollars
+                are already counted in actionable denials above — this view
+                isolates the COB subset so it gets worked.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <th className="pb-2 pr-4 font-medium">Claim</th>
+                      <th className="pb-2 pr-4 font-medium">Payer</th>
+                      <th className="pb-2 text-right font-medium">To coordinate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cob.claims.map((c) => (
+                      <tr key={c.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-4">
+                          <Link
+                            href={`/claims/${c.id}`}
+                            className="font-mono text-xs font-semibold text-brand-600"
+                          >
+                            {c.patientControlNumber ?? c.id.slice(0, 8)}
+                          </Link>
+                        </td>
+                        <td className="py-2 pr-4 text-slate-600">
+                          {c.payerName ?? "—"}
+                        </td>
+                        <td className="py-2 text-right tabular-nums text-amber-600">
+                          {formatCurrency(c.cobAmount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          ) : null}
+        </div>
+      ) : null}
 
       <SectionCard
         title="Top flagged claims"
