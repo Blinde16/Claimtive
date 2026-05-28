@@ -78,15 +78,26 @@ describe("parse835 — BCBS sample", () => {
 describe("parse835 — Aetna sample", () => {
   const parsed = parse835(aetna);
 
-  it("parses five claims with the expected statuses", () => {
-    expect(parsed.claims).toHaveLength(5);
+  it("parses six claims with the expected statuses", () => {
+    expect(parsed.claims).toHaveLength(6);
     expect(parsed.claims.map((c) => c.statusCode)).toEqual([
       "1",
       "4",
       "4",
       "4",
+      "1",
       "1"
     ]);
+  });
+
+  it("captures a coordination-of-benefits adjustment", () => {
+    const cob = parsed.claims[5];
+    expect(cob.patientControlNumber).toBe("PCN2006");
+    expect(cob.patientResponsibility).toBe(70);
+    const oa22 = cob.serviceLines[0].adjustments.find(
+      (a) => a.groupCode === "OA" && a.reasonCode === "22"
+    );
+    expect(oa22?.amount).toBe(50);
   });
 
   it("reads multi-unit service lines", () => {
