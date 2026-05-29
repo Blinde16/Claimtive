@@ -12,15 +12,33 @@ export function OnboardingPanel() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="card p-8 text-center">
+      <div className="text-center">
         <h1 className="text-xl font-semibold text-slate-900">
           Welcome to Claimtive
         </h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
           Claimtive reads your insurer remittances and surfaces the denials and
-          underpayments worth recovering. The fastest way to see how it works:
+          underpayments worth recovering. Pick the track that fits you.
         </p>
-        <form action={formAction} className="mt-6">
+      </div>
+
+      {/* Track 1 — Just exploring */}
+      <div className="card p-6">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+              Just exploring?
+            </p>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Load sample data and see the dashboard
+            </h2>
+          </div>
+        </div>
+        <p className="mt-1 text-sm text-slate-600">
+          One click loads a synthetic remittance with rates already in place, so
+          you can see denials <strong>and</strong> underpayments straight away.
+        </p>
+        <form action={formAction} className="mt-4">
           <SubmitButton pendingLabel="Loading sample…" className="btn-primary">
             Load sample data &amp; explore the dashboard
           </SubmitButton>
@@ -37,37 +55,49 @@ export function OnboardingPanel() {
         </p>
       </div>
 
+      {/* Track 2 — Ready with real data */}
       <div className="card p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+          Ready with real data?
+        </p>
         <h2 className="text-sm font-semibold text-slate-900">
-          Or set up with your own data
+          Set up in three steps
         </h2>
-        <ol className="mt-3 space-y-3 text-sm text-slate-600">
+        <ol className="mt-4 space-y-4 text-sm text-slate-600">
           <li className="flex gap-3">
-            <span className="font-semibold text-brand-600">1.</span>
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
+              1
+            </span>
             <span>
               <Link href="/contracts" className="font-semibold text-brand-600">
-                Load your payer contracts
+                Upload your contracted rates (Contracts)
               </Link>{" "}
-              — upload a fee-schedule CSV so underpayments can be detected.
-              (Do this before remittances.)
+              first, so we can catch underpayments. Underpayments are only
+              detected when rates already exist.
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="font-semibold text-brand-600">2.</span>
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
+              2
+            </span>
             <span>
               <Link href="/uploads" className="font-semibold text-brand-600">
-                Upload a remittance (835)
-              </Link>{" "}
-              — denials are detected immediately; underpayments use your rates.
+                Upload your 835 remittance files (Uploads)
+              </Link>
+              . Denials are detected immediately; underpayments use the rates
+              from step 1.
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="font-semibold text-brand-600">3.</span>
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
+              3
+            </span>
             <span>
+              Review your dashboard to work the flagged claims, then{" "}
               <Link href="/team" className="font-semibold text-brand-600">
-                Invite your billing team
+                invite your billing team
               </Link>{" "}
-              so they can work the flagged claims.
+              to help.
             </span>
           </li>
         </ol>

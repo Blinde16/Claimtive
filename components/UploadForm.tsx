@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef } from "react";
 import { useFormState } from "react-dom";
 import { uploadEdi, type UploadState } from "@/app/actions/uploads";
@@ -10,6 +11,11 @@ const initial: UploadState = {};
 export function UploadForm() {
   const [state, formAction] = useFormState(uploadEdi, initial);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // The success message says "remittance" for an 835 and "claim" for an 837.
+  // Remittances are where underpayment detection applies, so nudge the user
+  // toward loading contracted rates if they haven't already.
+  const processedRemittance = /\bremittance\b/.test(state.success ?? "");
 
   return (
     <form
@@ -38,14 +44,28 @@ export function UploadForm() {
       </div>
 
       {state.error ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {state.error}
-        </p>
+        <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p className="font-semibold">We couldn&apos;t process that file.</p>
+          <p className="mt-0.5">{state.error}</p>
+          <p className="mt-1 text-xs text-rose-600">
+            Check that it&apos;s an X12 835 or 837 file under 10 MB, then try
+            again.
+          </p>
+        </div>
       ) : null}
       {state.success ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {state.success}
-        </p>
+        <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <p>{state.success}</p>
+          {processedRemittance ? (
+            <p className="mt-1 text-xs text-emerald-700">
+              Tip: load your contracted rates on the{" "}
+              <Link href="/contracts" className="font-semibold underline">
+                Contracts page
+              </Link>{" "}
+              to also surface underpayments.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <SubmitButton pendingLabel="Processing…" className="btn-primary">

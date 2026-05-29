@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import {
   addTeamMember,
@@ -17,6 +17,52 @@ export interface TeamMemberRow {
   name: string;
   email: string;
   role: string;
+}
+
+/**
+ * Renders a one-time temporary password masked behind a "Show" toggle, with a
+ * "Copy" button. Keeps the secret off-screen by default so it isn't shoulder-
+ * surfed or left visible in a screen share.
+ */
+function TempPassword({ value }: { value: string }) {
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard can be unavailable (insecure context / denied permission);
+      // reveal the value so it can be copied manually.
+      setRevealed(true);
+    }
+  };
+
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-2">
+      <span>Temporary password:</span>
+      <span className="rounded bg-white px-2 py-0.5 font-mono text-emerald-900 ring-1 ring-emerald-200">
+        {revealed ? value : "•".repeat(Math.max(value.length, 8))}
+      </span>
+      <button
+        type="button"
+        onClick={() => setRevealed((v) => !v)}
+        aria-pressed={revealed}
+        className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+      >
+        {revealed ? "Hide" : "Show"}
+      </button>
+      <button
+        type="button"
+        onClick={copy}
+        className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </p>
+  );
 }
 
 export function TeamManager({
@@ -70,12 +116,7 @@ export function TeamManager({
             <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
               <p>{addState.success}</p>
               {addState.tempPassword ? (
-                <p className="mt-1">
-                  Temporary password:{" "}
-                  <span className="rounded bg-white px-2 py-0.5 font-mono text-emerald-900 ring-1 ring-emerald-200">
-                    {addState.tempPassword}
-                  </span>
-                </p>
+                <TempPassword value={addState.tempPassword} />
               ) : null}
             </div>
           ) : null}
@@ -105,12 +146,7 @@ export function TeamManager({
           <div className="mx-6 mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             <p>{resetState.success}</p>
             {resetState.tempPassword ? (
-              <p className="mt-1">
-                Temporary password:{" "}
-                <span className="rounded bg-white px-2 py-0.5 font-mono text-emerald-900 ring-1 ring-emerald-200">
-                  {resetState.tempPassword}
-                </span>
-              </p>
+              <TempPassword value={resetState.tempPassword} />
             ) : null}
           </div>
         ) : null}
@@ -151,7 +187,19 @@ export function TeamManager({
                         </button>
                       </form>
                       {m.id === currentUserId ? null : (
-                        <form action={removeAction} className="inline">
+                        <form
+                          action={removeAction}
+                          className="inline"
+                          onSubmit={(e) => {
+                            if (
+                              !window.confirm(
+                                `Remove ${m.name}? This permanently deletes their account.`
+                              )
+                            ) {
+                              e.preventDefault();
+                            }
+                          }}
+                        >
                           <input type="hidden" name="userId" value={m.id} />
                           <button
                             type="submit"

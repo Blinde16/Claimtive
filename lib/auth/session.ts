@@ -1,7 +1,10 @@
 import { jwtVerify, SignJWT } from "jose";
 
 export const SESSION_COOKIE = "claimtive_session";
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
+// 24h (was 7 days). Shorter window limits how long a leaked/stale session — or
+// one belonging to a removed user — stays usable. Re-auth daily is acceptable
+// for a clinic tool handling PHI.
+const MAX_AGE_SECONDS = 60 * 60 * 24; // 1 day
 
 export interface SessionPayload {
   sub: string; // user id
@@ -41,7 +44,9 @@ export async function verifySession(
 export const sessionCookieOptions = {
   name: SESSION_COOKIE,
   httpOnly: true,
-  sameSite: "lax" as const,
+  // "strict" so the session cookie is never sent on cross-site requests —
+  // stronger CSRF protection than "lax" for an internal PHI tool.
+  sameSite: "strict" as const,
   secure: process.env.NODE_ENV === "production",
   path: "/",
   maxAge: MAX_AGE_SECONDS

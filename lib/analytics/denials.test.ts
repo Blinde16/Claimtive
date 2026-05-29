@@ -58,17 +58,26 @@ describe("analyzeClaim", () => {
 
   it("detects partial denials and underpayments on a paid claim", () => {
     const analysis = analyzeClaim(bcbs.claims[2], rateLookup);
-    // Not a full denial — the claim was paid, but it lost money two ways.
+    // Not a full denial — the claim was paid, but it lost money.
     expect(analysis.isDenied).toBe(false);
     // CO-97 bundling on the 20610 line is recoverable.
     expect(analysis.deniedAmount).toBe(120);
-    // 99213 underpaid by 10, 20610 underpaid by 70.
-    expect(analysis.underpaidAmount).toBe(80);
+    // Only the 99213 office line is underpaid (by 10). The 20610 line is NOT
+    // underpaid: its CO-97 $120 is an *actionable* reduction already counted in
+    // deniedAmount, so it no longer also depresses the underpayment baseline
+    // (previously it double-counted that $120 as a $70 underpayment).
+    expect(analysis.underpaidAmount).toBe(10);
     expect(analysis.isUnderpaid).toBe(true);
 
     const [office, injection] = analysis.services;
+    // 99213: charge 200, CO-45 (legit contractual) 80 → expectedAllowed 120,
+    // contracted 130 → underpaid 10.
     expect(office.underpaidAmount).toBe(10);
-    expect(injection.underpaidAmount).toBe(70);
+    // 20610: charge 400, CO-45 100 (legit) + CO-97 120 (actionable). Baseline
+    // excludes the actionable CO-97, so expectedAllowed = 400 - 100 = 300,
+    // which already exceeds the 250 contracted rate → underpaid 0.
+    expect(injection.underpaidAmount).toBe(0);
+    // Display allowedAmount keeps charge minus ALL CO (400 - 220 = 180).
     expect(injection.allowedAmount).toBe(180);
   });
 });

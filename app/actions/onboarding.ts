@@ -115,8 +115,7 @@ export async function loadSampleData(
       success: `Loaded ${result.claimCount} sample claims. Explore your dashboard!`
     };
   } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : "Failed to load sample data."
-    };
+    console.error("loadSampleData failed:", err);
+    return { error: "Couldn't load the sample data. Please try again." };
   }
 }

@@ -12,10 +12,19 @@ authenticator.options = { window: 1 };
 
 const ISSUER = "Claimtive";
 
-/** 32-byte AES key derived from AUTH_SECRET. */
+/**
+ * 32-byte AES key for encrypting TOTP secrets. Prefers a DEDICATED secret
+ * (MFA_ENCRYPTION_KEY) so a leak of the session-signing AUTH_SECRET does not
+ * also expose every stored MFA secret. Falls back to AUTH_SECRET for backward
+ * compatibility until the dedicated secret is provisioned.
+ *
+ * To provision: create a Secret Manager secret `claimtive-mfa-key`, wire it as
+ * MFA_ENCRYPTION_KEY in apphosting.yaml, and re-enroll MFA (the demo runs with
+ * MFA off, so there are no existing secrets to migrate).
+ */
 function aesKey(): Buffer {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set");
+  const secret = process.env.MFA_ENCRYPTION_KEY || process.env.AUTH_SECRET;
+  if (!secret) throw new Error("MFA_ENCRYPTION_KEY / AUTH_SECRET is not set");
   return createHash("sha256").update(secret).digest();
 }
 

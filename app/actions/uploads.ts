@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { ingestEdiFile } from "@/lib/ingest";
+import {
+  ingestEdiFile,
+  DuplicateFileError,
+  TooManyClaimsError,
+  IngestValidationError
+} from "@/lib/ingest";
 import { recordAudit } from "@/lib/audit";
 
 export interface UploadState {
@@ -54,8 +59,20 @@ export async function uploadEdi(
       } records imported.`
     };
   } catch (err) {
+    // Only surface messages we authored (safe, no PHI / internals). Anything
+    // else is logged server-side and shown as a generic message so a raw DB or
+    // parser exception can't leak file contents or schema details to the client.
+    if (
+      err instanceof DuplicateFileError ||
+      err instanceof TooManyClaimsError ||
+      err instanceof IngestValidationError
+    ) {
+      return { error: err.message };
+    }
+    console.error("uploadEdi failed:", err);
     return {
-      error: err instanceof Error ? err.message : "Failed to process file."
+      error:
+        "We couldn't process that file. Please confirm it's a valid X12 835/837 and try again."
     };
   }
 }

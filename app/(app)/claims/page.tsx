@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/dashboard-ui";
+import { InfoTip } from "@/components/InfoTip";
 import {
   buildClaimWhere,
   CLAIM_FILTERS,
@@ -145,20 +146,30 @@ export default async function ClaimsPage({
         </div>
       ) : null}
 
-      <div className="flex gap-2">
-        {CLAIM_FILTERS.map((f) => (
-          <Link
-            key={f.key}
-            href={buildHref(f.key)}
-            className={`rounded-full px-3 py-1 text-sm font-medium ${
-              filter === f.key
-                ? "bg-brand-600 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            {f.label}
-          </Link>
-        ))}
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          {CLAIM_FILTERS.map((f) => (
+            <Link
+              key={f.key}
+              href={buildHref(f.key)}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                filter === f.key
+                  ? "bg-brand-600 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {f.label}
+            </Link>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500">
+          <InfoTip
+            label="Recoverable"
+            text="A subset of denied claims that still have denial dollars worth appealing — money you can realistically chase, not routine write-offs."
+          />{" "}
+          claims show in the Denied view; clear all filters to see Clean (paid in
+          full) claims alongside them.
+        </p>
       </div>
 
       <div className="card overflow-hidden">
@@ -170,12 +181,29 @@ export default async function ClaimsPage({
                 <th className="px-4 py-3 font-medium">Patient</th>
                 <th className="px-4 py-3 font-medium">Payer</th>
                 <th className="px-4 py-3 font-medium">Service date</th>
-                <th className="px-4 py-3 font-medium">Outcome</th>
+                <th className="px-4 py-3 font-medium">
+                  <InfoTip
+                    label="Outcome"
+                    text="How the payer settled the claim. Denied = payer paid nothing on at least one line. Underpaid = paid less than your contracted rate. Recoverable = denied dollars worth appealing. Clean = paid in full with nothing to chase."
+                  />
+                </th>
                 <th className="px-4 py-3 font-medium">Work</th>
                 <th className="px-4 py-3 text-right font-medium">Billed</th>
                 <th className="px-4 py-3 text-right font-medium">Paid</th>
-                <th className="px-4 py-3 text-right font-medium">Denied</th>
-                <th className="px-4 py-3 text-right font-medium">Underpaid</th>
+                <th className="px-4 py-3 text-right font-medium">
+                  <InfoTip
+                    className="justify-end"
+                    label="Denied"
+                    text="Actionable denial dollars worth appealing — excludes routine contractual write-offs and patient responsibility."
+                  />
+                </th>
+                <th className="px-4 py-3 text-right font-medium">
+                  <InfoTip
+                    className="justify-end"
+                    label="Underpaid"
+                    text="Paid less than your contracted rate for the procedure."
+                  />
+                </th>
                 <th className="px-4 py-3 font-medium">
                   <span className="sr-only">View</span>
                 </th>

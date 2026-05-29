@@ -11,7 +11,21 @@ import {
   type PdfExtractionResult
 } from "@/lib/contracts/extractRatesFromPdf";
 import { AiDisabledError } from "@/lib/ai/vertex";
+import { recomputeOrgAnalytics } from "@/lib/analytics/recompute";
 import { recordAudit } from "@/lib/audit";
+
+/**
+ * Re-run the deterministic engine over already-ingested claims so newly loaded
+ * rates retroactively surface underpayments. Best-effort: a recompute failure
+ * must not fail the rate save (the rates are already persisted).
+ */
+async function recomputeAfterRateChange(organizationId: string): Promise<void> {
+  try {
+    await recomputeOrgAnalytics(organizationId);
+  } catch (err) {
+    console.error("recomputeOrgAnalytics failed after rate change:", err);
+  }
+}
 
 export interface ContractUploadState {
   error?: string;
@@ -176,10 +190,8 @@ export async function uploadFeeSchedule(
   try {
     result = await persistRates(user.organizationId, parsed.rates, { providedName });
   } catch (err) {
-    return {
-      error:
-        err instanceof Error ? `Failed to save contracts: ${err.message}` : "Failed to save contracts."
-    };
+    console.error("uploadFeeSchedule failed:", err);
+    return { error: "Failed to save contracts. Please try again." };
   }
 
   await recordAudit({
@@ -190,10 +202,14 @@ export async function uploadFeeSchedule(
     detail: `${result.created} new, ${result.updated} updated rates across ${distinctPayers} payer(s) (CSV)`
   });
 
+  // Re-run the engine so the new rates retroactively surface underpayments on
+  // claims that were imported before the contract existed.
+  await recomputeAfterRateChange(user.organizationId);
+
   revalidatePath("/contracts");
-  // Underpayment numbers are computed at ingest time, so changing rates does not
-  // retroactively update already-imported claims — but new uploads will use them.
   revalidatePath("/dashboard");
+  revalidatePath("/claims");
+  revalidatePath("/uploads");
 
   return {
     success: `Imported ${result.created} new rate(s), updated ${result.updated}, ${result.unchanged} unchanged across ${distinctPayers} payer(s).`,
@@ -252,11 +268,10 @@ export async function extractFeeSchedulePdf(
           "AI extraction isn't enabled on this environment. Use the CSV importer instead."
       };
     }
+    console.error("extractFeeSchedulePdf failed:", err);
     return {
       error:
-        err instanceof Error
-          ? `Could not extract rates from this PDF: ${err.message}`
-          : "Could not extract rates from this PDF."
+        "Could not extract rates from this PDF. Please try again, or use the CSV importer."
     };
   }
 
@@ -340,10 +355,8 @@ export async function confirmExtractedRates(
       effectiveDate
     });
   } catch (err) {
-    return {
-      error:
-        err instanceof Error ? `Failed to save contracts: ${err.message}` : "Failed to save contracts."
-    };
+    console.error("confirmExtractedRates failed:", err);
+    return { error: "Failed to save contracts. Please try again." };
   }
 
   await recordAudit({
@@ -354,8 +367,13 @@ export async function confirmExtractedRates(
     detail: `${result.created} new, ${result.updated} updated rates for ${payerName} (PDF, human-confirmed)`
   });
 
+  // Retroactively surface underpayments on existing claims with the new rates.
+  await recomputeAfterRateChange(user.organizationId);
+
   revalidatePath("/contracts");
   revalidatePath("/dashboard");
+  revalidatePath("/claims");
+  revalidatePath("/uploads");
 
   return {
     success: `Saved ${result.created} new rate(s), updated ${result.updated}, ${result.unchanged} unchanged for ${payerName}.`,

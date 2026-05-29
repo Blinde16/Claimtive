@@ -34,14 +34,18 @@ export default async function ContractsPage() {
         </p>
       </div>
 
+      <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+        Load your contracted rates <strong>before</strong> uploading remittances
+        — underpayments are detected at import time, so rates must exist first.
+      </div>
+
       <section className="card p-6">
         <h2 className="text-sm font-semibold text-slate-900">
           Upload a fee schedule
         </h2>
         <p className="mb-4 mt-1 text-xs text-slate-500">
-          Tip: load your contracted rates <strong>before</strong> uploading
-          remittances — underpayments are detected at import time, so rates must
-          exist first to be applied to incoming claims.
+          Add one fee schedule per payer. Rates are applied to remittances
+          imported after they&apos;re loaded.
         </p>
         <ContractUploadForm />
       </section>

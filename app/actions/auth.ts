@@ -1,11 +1,16 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
+import {
+  checkRateLimit,
+  clearRateLimit,
+  registerFailure
+} from "@/lib/auth/rateLimit";
 import { recordAudit } from "@/lib/audit";
 import {
   consumeBackupCode,
@@ -23,6 +28,20 @@ export interface AuthState {
   mfaRequired?: boolean;
   /** The MFA challenge expired — the user should re-enter email/password. */
   mfaExpired?: boolean;
+}
+
+// Lockout thresholds. Password: 8 failures / 15 min per email and per IP.
+// MFA code: 6 failures / 10 min per user.
+const LOGIN_MAX = 8;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MFA_MAX = 6;
+const MFA_WINDOW_MS = 10 * 60 * 1000;
+
+function getClientIp(): string {
+  const h = headers();
+  const xff = h.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]!.trim();
+  return h.get("x-real-ip") ?? "unknown";
 }
 
 function slugify(input: string): string {
@@ -67,12 +86,47 @@ export async function login(
     return { error: "Enter a valid email and password." };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email.toLowerCase() }
-  });
+  const email = parsed.data.email.toLowerCase();
+  const emailKey = `login:email:${email}`;
+  const ipKey = `login:ip:${getClientIp()}`;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // Lockout check BEFORE the CPU-heavy bcrypt compare — also blunts a hash DoS.
+  if (
+    checkRateLimit(emailKey, LOGIN_MAX, LOGIN_WINDOW_MS).limited ||
+    checkRateLimit(ipKey, LOGIN_MAX, LOGIN_WINDOW_MS).limited
+  ) {
+    if (user) {
+      await recordAudit({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userEmail: email,
+        action: "auth.login_blocked"
+      });
+    }
+    return {
+      error: "Too many sign-in attempts. Please wait a few minutes and try again."
+    };
+  }
+
   if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+    registerFailure(emailKey, LOGIN_WINDOW_MS);
+    registerFailure(ipKey, LOGIN_WINDOW_MS);
+    if (user) {
+      await recordAudit({
+        organizationId: user.organizationId,
+        userId: user.id,
+        userEmail: email,
+        action: "auth.login_failed"
+      });
+    }
     return { error: "Invalid email or password." };
   }
+
+  // Password verified — clear the failure counters for this email + IP.
+  clearRateLimit(emailKey);
+  clearRateLimit(ipKey);
 
   // If MFA is on, hold off on the session — issue a short-lived challenge and
   // ask for the authenticator code.
@@ -112,6 +166,15 @@ export async function verifyMfaLogin(
     return { error: "Two-factor isn't configured. Please sign in again.", mfaExpired: true };
   }
 
+  // Throttle brute-forcing the 6-digit TOTP / backup codes.
+  const mfaKey = `mfa:${user.id}`;
+  if (checkRateLimit(mfaKey, MFA_MAX, MFA_WINDOW_MS).limited) {
+    return {
+      error: "Too many code attempts. Please wait a few minutes and try again.",
+      mfaRequired: true
+    };
+  }
+
   const code = (formData.get("code") as string | null)?.trim() ?? "";
   if (!code) return { error: "Enter your 6-digit code.", mfaRequired: true };
 
@@ -133,9 +196,17 @@ export async function verifyMfaLogin(
     }
   }
   if (!ok) {
+    registerFailure(mfaKey, MFA_WINDOW_MS);
+    await recordAudit({
+      organizationId: user.organizationId,
+      userId: user.id,
+      userEmail: user.email,
+      action: "auth.mfa_failed"
+    });
     return { error: "Invalid code. Try again, or use a backup code.", mfaRequired: true };
   }
 
+  clearRateLimit(mfaKey);
   cookies().delete(MFA_COOKIE);
   await startSession(user);
   await recordAudit({

@@ -5,7 +5,9 @@ import {
   getCategoryBreakdown,
   getDashboardMetrics,
   getDenialReasonBreakdown,
-  getPayerBreakdown
+  getMonthlyTrend,
+  getPayerBreakdown,
+  getProviderBreakdown
 } from "@/lib/analytics/metrics";
 import {
   getCobFollowUps,
@@ -15,6 +17,7 @@ import { getUnadjudicatedClaims } from "@/lib/analytics/matching";
 import { generateInsights } from "@/lib/insights";
 import { generateInsightsWithFallback } from "@/lib/ai/insights";
 import { OnboardingPanel } from "@/components/OnboardingPanel";
+import { InfoTip } from "@/components/InfoTip";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import {
   BarList,
@@ -35,6 +38,8 @@ export default async function DashboardPage() {
     categories,
     reasons,
     payers,
+    trend,
+    providers,
     flagged,
     unadjudicated,
     patientResp,
@@ -44,6 +49,8 @@ export default async function DashboardPage() {
     getCategoryBreakdown(orgId),
     getDenialReasonBreakdown(orgId),
     getPayerBreakdown(orgId),
+    getMonthlyTrend(orgId),
+    getProviderBreakdown(orgId),
     prisma.claim.findMany({
       where: {
         organizationId: orgId,
@@ -115,6 +122,28 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Plain-English glossary for the KPI jargon above. */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+        <InfoTip
+          label="Denied (actionable)"
+          text="Adjustment dollars from recoverable payer denials worth working — excludes expected write-offs and patient responsibility."
+        />
+        <InfoTip
+          label="Recoverable"
+          text="Denied (actionable) plus underpayments — the total dollars potentially recoverable from payers."
+        />
+      </div>
+
+      {metrics.totalUnderpaid === 0 ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Underpayments show $0 — load your contracted rates on the{" "}
+          <Link href="/contracts" className="font-semibold underline">
+            Contracts page
+          </Link>{" "}
+          to enable underpayment detection.
+        </div>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <SectionCard title="Denial dollars by category">
@@ -133,7 +162,12 @@ export default async function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="pb-2 pr-4 font-medium">Code</th>
+                    <th className="pb-2 pr-4 font-medium">
+                      <InfoTip
+                        label="CARC"
+                        text="Claim Adjustment Reason Code — the standardized X12 code (group + reason) the payer used to explain each adjustment."
+                      />
+                    </th>
                     <th className="pb-2 pr-4 font-medium">Reason</th>
                     <th className="pb-2 pr-4 font-medium">Category</th>
                     <th className="pb-2 pr-4 text-right font-medium">Amount</th>
@@ -225,6 +259,102 @@ export default async function DashboardPage() {
         </div>
       </SectionCard>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Trend (last 6 months)">
+          <p className="mb-3 text-xs text-slate-500">
+            Recoverable dollars (denied + underpaid) and denial rate by month.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="pb-2 pr-4 font-medium">Month</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Claims</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Billed</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Denied</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Underpaid</th>
+                  <th className="pb-2 text-right font-medium">Denial rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trend.map((m) => (
+                  <tr key={m.month} className="border-b border-slate-100">
+                    <td className="py-2 pr-4 font-medium text-slate-800">
+                      {m.month}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-slate-600">
+                      {m.claimCount}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {formatCurrency(m.billed)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-rose-600">
+                      {formatCurrency(m.denied)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-amber-600">
+                      {formatCurrency(m.underpaid)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {formatPercent(m.denialRate)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Revenue leakage by provider">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="pb-2 pr-4 font-medium">
+                    <InfoTip
+                      label="NPI"
+                      text="National Provider Identifier — the rendering provider who performed the service."
+                    />
+                  </th>
+                  <th className="pb-2 pr-4 text-right font-medium">Claims</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Denied</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Underpaid</th>
+                  <th className="pb-2 text-right font-medium">Denial rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-slate-500">
+                      No provider-attributed claims yet.
+                    </td>
+                  </tr>
+                ) : (
+                  providers.map((p) => (
+                    <tr key={p.npi} className="border-b border-slate-100">
+                      <td className="py-2 pr-4 font-mono text-xs text-slate-800">
+                        {p.npi}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums text-slate-600">
+                        {p.claimCount}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums text-rose-600">
+                        {formatCurrency(p.denied)}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums text-amber-600">
+                        {formatCurrency(p.underpaid)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {formatPercent(p.denialRate)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      </div>
+
       {patientResp.claimCount > 0 || cob.count > 0 ? (
         <div className="grid gap-6 lg:grid-cols-2">
           {patientResp.claimCount > 0 ? (
@@ -268,7 +398,13 @@ export default async function DashboardPage() {
                 The primary payer indicated another payer is responsible (CARC
                 22/109/19). Confirm the secondary claim was billed. These dollars
                 are already counted in actionable denials above — this view
-                isolates the COB subset so it gets worked.
+                isolates the{" "}
+                <InfoTip
+                  className="align-baseline"
+                  label="COB"
+                  text="Coordination of Benefits — when more than one payer covers a patient, COB determines payment order so the secondary payer can be billed the remaining balance."
+                />{" "}
+                subset so it gets worked.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

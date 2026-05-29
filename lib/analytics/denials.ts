@@ -56,6 +56,23 @@ function sumGroup(adjustments: ParsedAdjustment[], groupCode: string): number {
   return round2(total);
 }
 
+/**
+ * Sums only the *non-actionable* CO (contractual obligation) adjustments — the
+ * genuine write-offs the payer is contractually entitled to (e.g. CO-45 charge
+ * exceeds fee schedule). Actionable CO reductions (e.g. CO-97 bundling) are
+ * deliberately excluded: those dollars are recoverable and already captured in
+ * `deniedAmount`, so they must NOT also depress the underpayment baseline.
+ */
+function sumNonActionableContractual(adjustments: ParsedAdjustment[]): number {
+  let total = 0;
+  for (const adj of adjustments) {
+    if (adj.groupCode !== "CO") continue;
+    if (classifyAdjustment(adj.groupCode, adj.reasonCode).actionable) continue;
+    total += adj.amount;
+  }
+  return round2(total);
+}
+
 /** Largest actionable adjustment, used to attribute a primary denial reason. */
 function dominantActionable(
   adjustments: ParsedAdjustment[]
@@ -76,7 +93,8 @@ export function analyzeServiceLine(
   rateLookup?: ContractRateLookup,
   payerId: string | null = null
 ): ServiceAnalysis {
-  // Allowed = billed minus contractual obligations the payer applied.
+  // Allowed (for display) = billed minus ALL contractual obligations the payer
+  // applied. This mirrors the remittance's stated allowed amount.
   const contractual = sumGroup(line.adjustments, "CO");
   const allowedAmount = round2(Math.max(0, line.chargeAmount - contractual));
   const deniedAmount = sumActionable(line.adjustments);
@@ -91,7 +109,18 @@ export function analyzeServiceLine(
       if (!isDenied) {
         const units = line.units > 0 ? line.units : 1;
         const expected = round2(rate * units);
-        underpaidAmount = round2(Math.max(0, expected - allowedAmount));
+        // Underpayment is measured against only the LEGITIMATE contractual
+        // write-offs (non-actionable CO). Actionable CO reductions like CO-97
+        // bundling are recoverable dollars already counted in `deniedAmount`;
+        // subtracting them here too would double-count the same money in the
+        // dashboard's "recoverable = denied + underpaid".
+        const nonActionableContractual = sumNonActionableContractual(
+          line.adjustments
+        );
+        const expectedAllowed = round2(
+          Math.max(0, line.chargeAmount - nonActionableContractual)
+        );
+        underpaidAmount = round2(Math.max(0, expected - expectedAllowed));
       }
     }
   }

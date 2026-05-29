@@ -33,6 +33,18 @@ export class TooManyClaimsError extends Error {
   }
 }
 
+/**
+ * Thrown for safe, user-facing validation problems (empty file, not X12, etc.).
+ * Distinguishes intended messages from unexpected internal errors so the upload
+ * action can show these verbatim but hide raw exception text for everything else.
+ */
+export class IngestValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IngestValidationError";
+  }
+}
+
 function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
@@ -58,7 +70,7 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-async function buildRateLookup(
+export async function buildRateLookup(
   organizationId: string
 ): Promise<ContractRateLookup> {
   const rates = await prisma.contractRate.findMany({
@@ -338,7 +350,7 @@ async function ingest837(
 
 export async function ingestEdiFile(input: IngestInput): Promise<IngestResult> {
   if (!input.content || input.content.trim() === "") {
-    throw new Error("The file is empty.");
+    throw new IngestValidationError("The file is empty.");
   }
 
   // Detect the transaction type up front so a non-EDI file fails clearly.
@@ -346,12 +358,12 @@ export async function ingestEdiFile(input: IngestInput): Promise<IngestResult> {
   try {
     type = detectTransactionType(tokenize(input.content));
   } catch {
-    throw new Error(
+    throw new IngestValidationError(
       "Could not read this file as X12 EDI. Expected an 835 (remittance) or 837 (claim)."
     );
   }
   if (type !== "X835" && type !== "X837") {
-    throw new Error(
+    throw new IngestValidationError(
       "Unrecognized EDI file. Expected an X12 835 (remittance) or 837 (claim)."
     );
   }
