@@ -122,7 +122,15 @@ export default async function ClaimDetailPage({
           {isRemit ? <span>Paid date: {formatDate(claim.paidDate)}</span> : null}
           <span>Payer claim #: {claim.payerClaimControlNumber ?? "—"}</span>
           <span>Rendering NPI: {claim.renderingProviderNpi ?? "—"}</span>
-          <span>Source: {claim.ediFile.fileName}</span>
+          <span>
+            Source:{" "}
+            <Link
+              href={`/claims?file=${claim.ediFileId}`}
+              className="font-medium text-brand-600 hover:text-brand-700"
+            >
+              {claim.ediFile.fileName}
+            </Link>
+          </span>
         </div>
       </div>
 

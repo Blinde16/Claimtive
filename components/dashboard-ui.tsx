@@ -91,10 +91,17 @@ export function InsightsPanel({ insights }: { insights: Insight[] }) {
 
 export function StatusBadge({
   denied,
-  underpaid
+  underpaid,
+  recoverable = false
 }: {
   denied: boolean;
   underpaid: boolean;
+  /**
+   * The claim was paid (not a full denial / underpayment) but still carries
+   * actionable adjustment dollars — e.g. a coordination-of-benefits amount the
+   * secondary should be billed. Shown so these don't read as "Clean".
+   */
+  recoverable?: boolean;
 }) {
   if (denied) {
     return (
@@ -107,6 +114,13 @@ export function StatusBadge({
     return (
       <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
         Underpaid
+      </span>
+    );
+  }
+  if (recoverable) {
+    return (
+      <span className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+        Recoverable
       </span>
     );
   }

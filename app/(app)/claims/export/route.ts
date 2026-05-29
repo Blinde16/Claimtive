@@ -28,7 +28,8 @@ export async function GET(request: Request) {
   const where = buildClaimWhere(user.organizationId, {
     filter: searchParams.get("filter") ?? undefined,
     q: searchParams.get("q") ?? undefined,
-    status: searchParams.get("status") ?? undefined
+    status: searchParams.get("status") ?? undefined,
+    file: searchParams.get("file") ?? undefined
   });
 
   const claims = await prisma.claim.findMany({

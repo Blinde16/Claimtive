@@ -20,7 +20,7 @@ export const metadata = { title: "Claims" };
 export default async function ClaimsPage({
   searchParams
 }: {
-  searchParams: { filter?: string; q?: string; status?: string };
+  searchParams: { filter?: string; q?: string; status?: string; file?: string };
 }) {
   const user = (await getCurrentUser())!;
   const orgId = user.organizationId;
@@ -30,8 +30,26 @@ export default async function ClaimsPage({
     searchParams.status && isWorkStatus(searchParams.status)
       ? searchParams.status
       : "";
+  const file = (searchParams.file ?? "").trim();
 
-  const where = buildClaimWhere(orgId, { filter, q, status });
+  const where = buildClaimWhere(orgId, { filter, q, status, file });
+
+  // When drilling in from the Uploads page, load the source file for context
+  // (and to confirm it belongs to this org — a bad/foreign id yields no banner
+  // and, since ediFileId won't match, no claims).
+  const sourceFile = file
+    ? await prisma.ediFile.findFirst({
+        where: { id: file, organizationId: orgId },
+        select: {
+          fileName: true,
+          type: true,
+          createdAt: true,
+          claimCount: true,
+          totalDenied: true,
+          totalUnderpaid: true
+        }
+      })
+    : null;
 
   const claims = await prisma.claim.findMany({
     where,
@@ -49,10 +67,11 @@ export default async function ClaimsPage({
 
   const queryString = (overrides: Record<string, string>) => {
     const params = new URLSearchParams();
-    const merged = { filter, q, status, ...overrides };
+    const merged = { filter, q, status, file, ...overrides };
     if (merged.filter && merged.filter !== "all") params.set("filter", merged.filter);
     if (merged.q) params.set("q", merged.q);
     if (merged.status) params.set("status", merged.status);
+    if (merged.file) params.set("file", merged.file);
     return params.toString();
   };
 
@@ -72,6 +91,7 @@ export default async function ClaimsPage({
             {filter !== "all" ? (
               <input type="hidden" name="filter" value={filter} />
             ) : null}
+            {file ? <input type="hidden" name="file" value={file} /> : null}
             <input
               type="search"
               name="q"
@@ -96,6 +116,34 @@ export default async function ClaimsPage({
           </a>
         </div>
       </div>
+
+      {sourceFile ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3">
+          <div className="text-sm text-slate-700">
+            Showing claims from{" "}
+            <span className="font-semibold text-slate-900">
+              {sourceFile.fileName}
+            </span>{" "}
+            <span className="text-slate-500">
+              ({sourceFile.type === "X835" ? "835 remittance" : "837 claim"} ·
+              uploaded {formatDate(sourceFile.createdAt)} · {sourceFile.claimCount}{" "}
+              claim{sourceFile.claimCount === 1 ? "" : "s"}
+              {sourceFile.type === "X835"
+                ? ` · ${formatCurrency(Number(sourceFile.totalDenied))} denied · ${formatCurrency(
+                    Number(sourceFile.totalUnderpaid)
+                  )} underpaid`
+                : ""}
+              )
+            </span>
+          </div>
+          <Link
+            href="/claims"
+            className="text-sm font-semibold text-brand-600 hover:text-brand-700"
+          >
+            Clear · view all claims
+          </Link>
+        </div>
+      ) : null}
 
       <div className="flex gap-2">
         {CLAIM_FILTERS.map((f) => (
@@ -128,12 +176,15 @@ export default async function ClaimsPage({
                 <th className="px-4 py-3 text-right font-medium">Paid</th>
                 <th className="px-4 py-3 text-right font-medium">Denied</th>
                 <th className="px-4 py-3 text-right font-medium">Underpaid</th>
+                <th className="px-4 py-3 font-medium">
+                  <span className="sr-only">View</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {claims.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-500">
                     No claims match this view.
                   </td>
                 </tr>
@@ -166,7 +217,11 @@ export default async function ClaimsPage({
                           Submitted
                         </span>
                       ) : (
-                        <StatusBadge denied={c.isDenied} underpaid={c.isUnderpaid} />
+                        <StatusBadge
+                          denied={c.isDenied}
+                          underpaid={c.isUnderpaid}
+                          recoverable={Number(c.deniedAmount) > 0}
+                        />
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -194,6 +249,14 @@ export default async function ClaimsPage({
                       {Number(c.underpaidAmount) > 0
                         ? formatCurrency(Number(c.underpaidAmount))
                         : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/claims/${c.id}`}
+                        className="text-sm font-semibold text-brand-600 hover:text-brand-700"
+                      >
+                        View →
+                      </Link>
                     </td>
                   </tr>
                 ))

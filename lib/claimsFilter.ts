@@ -17,9 +17,13 @@ export function normalizeFilter(value: string | undefined): ClaimFilter {
 /** Shared WHERE builder used by both the claims list page and the CSV export. */
 export function buildClaimWhere(
   organizationId: string,
-  params: { filter?: string; q?: string; status?: string }
+  params: { filter?: string; q?: string; status?: string; file?: string }
 ): Prisma.ClaimWhereInput {
   const where: Prisma.ClaimWhereInput = { organizationId };
+
+  // Scope to a single uploaded file (drill-down from the Uploads page).
+  const file = (params.file ?? "").trim();
+  if (file) where.ediFileId = file;
 
   const filter = normalizeFilter(params.filter);
   if (filter === "denied") where.isDenied = true;

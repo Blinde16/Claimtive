@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -41,20 +42,31 @@ export default async function UploadsPage() {
                   <th className="px-4 py-3 text-right font-medium">Denied</th>
                   <th className="px-4 py-3 text-right font-medium">Underpaid</th>
                   <th className="px-6 py-3 font-medium">Uploaded</th>
+                  <th className="px-4 py-3 font-medium">
+                    <span className="sr-only">View claims</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {files.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                       No files yet. Upload an 835 or 837 to get started.
                     </td>
                   </tr>
                 ) : (
                   files.map((f) => (
-                    <tr key={f.id} className="border-b border-slate-100">
-                      <td className="px-6 py-3 font-medium text-slate-800">
-                        {f.fileName}
+                    <tr
+                      key={f.id}
+                      className="border-b border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="px-6 py-3 font-medium">
+                        <Link
+                          href={`/claims?file=${f.id}`}
+                          className="text-brand-600 hover:text-brand-700"
+                        >
+                          {f.fileName}
+                        </Link>
                       </td>
                       <td className="px-4 py-3">
                         <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
@@ -72,6 +84,14 @@ export default async function UploadsPage() {
                       </td>
                       <td className="px-6 py-3 text-slate-500">
                         {formatDate(f.createdAt)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/claims?file=${f.id}`}
+                          className="text-sm font-semibold text-brand-600 hover:text-brand-700"
+                        >
+                          View claims →
+                        </Link>
                       </td>
                     </tr>
                   ))
