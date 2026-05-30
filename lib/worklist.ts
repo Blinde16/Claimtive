@@ -38,3 +38,28 @@ export function workStatusLabel(value: string | null | undefined): string {
   if (value && isWorkStatus(value)) return WORK_STATUS_LABELS[value];
   return "New";
 }
+
+// Resolution outcomes capture *what happened* when a claim is worked to a
+// conclusion — most meaningful once the status is RESOLVED.
+export const RESOLUTION_OUTCOMES = [
+  "RECOVERED_FULL",
+  "RECOVERED_PARTIAL",
+  "UPHELD",
+  "WRITTEN_OFF"
+] as const;
+
+export type ResolutionOutcome = (typeof RESOLUTION_OUTCOMES)[number];
+
+export const RESOLUTION_OUTCOME_LABELS: Record<ResolutionOutcome, string> = {
+  RECOVERED_FULL: "Recovered in full",
+  RECOVERED_PARTIAL: "Partially recovered",
+  UPHELD: "Denial upheld",
+  WRITTEN_OFF: "Written off"
+};
+
+export function isResolutionOutcome(value: unknown): value is ResolutionOutcome {
+  return (
+    typeof value === "string" &&
+    (RESOLUTION_OUTCOMES as readonly string[]).includes(value)
+  );
+}

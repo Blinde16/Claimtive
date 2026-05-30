@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { signSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
+import {
+  signSession,
+  verifySession,
+  sessionCookieOptions,
+  SESSION_COOKIE
+} from "@/lib/auth/session";
 import {
   checkRateLimit,
   clearRateLimit,
@@ -58,13 +63,15 @@ async function startSession(user: {
   email: string;
   name: string;
   role: string;
+  tokenVersion: number;
 }) {
   const token = await signSession({
     sub: user.id,
     orgId: user.organizationId,
     email: user.email,
     name: user.name,
-    role: user.role
+    role: user.role,
+    tv: user.tokenVersion
   });
   cookies().set({ ...sessionCookieOptions, value: token });
 }
@@ -268,6 +275,22 @@ export async function signup(
 }
 
 export async function logout() {
+  // Bump tokenVersion so the just-issued JWT can't be replayed and any other
+  // active sessions for this user are invalidated too ("sign out everywhere").
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (token) {
+    const payload = await verifySession(token);
+    if (payload?.sub) {
+      await prisma.user
+        .update({
+          where: { id: payload.sub },
+          data: { tokenVersion: { increment: 1 } }
+        })
+        .catch(() => {
+          /* logout proceeds regardless */
+        });
+    }
+  }
   cookies().delete(SESSION_COOKIE);
   redirect("/login");
 }

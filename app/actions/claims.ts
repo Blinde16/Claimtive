@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
-import { isWorkStatus } from "@/lib/worklist";
+import { isResolutionOutcome, isWorkStatus } from "@/lib/worklist";
 import { recordAudit } from "@/lib/audit";
 
 export interface ClaimWorkState {
@@ -22,10 +22,30 @@ export async function updateClaimWork(
   const workStatus = (formData.get("workStatus") as string | null)?.trim();
   const workNoteRaw = (formData.get("workNote") as string | null) ?? "";
   const assignedToRaw = (formData.get("assignedToId") as string | null)?.trim() ?? "";
+  const recoveredRaw = (formData.get("recoveredAmount") as string | null) ?? "";
+  const resolutionRaw =
+    (formData.get("resolutionOutcome") as string | null)?.trim() ?? "";
 
   if (!claimId) return { error: "Missing claim." };
   if (!workStatus || !isWorkStatus(workStatus)) {
     return { error: "Invalid status." };
+  }
+
+  // Parse the recovered amount tolerantly: strip "$" and thousands separators,
+  // default to 0 when blank, and reject anything that isn't a non-negative number.
+  const recoveredCleaned = recoveredRaw.replace(/[$,\s]/g, "");
+  const recoveredAmount = recoveredCleaned === "" ? 0 : Number(recoveredCleaned);
+  if (!Number.isFinite(recoveredAmount) || recoveredAmount < 0) {
+    return { error: "Recovered amount must be a number of $0 or more." };
+  }
+
+  // Resolution outcome is optional; when present it must be one of the known values.
+  let resolutionOutcome: string | null = null;
+  if (resolutionRaw) {
+    if (!isResolutionOutcome(resolutionRaw)) {
+      return { error: "Invalid resolution outcome." };
+    }
+    resolutionOutcome = resolutionRaw;
   }
 
   // Scope the claim to the caller's org.
@@ -54,6 +74,8 @@ export async function updateClaimWork(
       workStatus,
       workNote,
       assignedToId,
+      recoveredAmount,
+      resolutionOutcome,
       workUpdatedAt: new Date()
     }
   });
@@ -65,7 +87,7 @@ export async function updateClaimWork(
     action: "claim.work.update",
     targetType: "claim",
     targetId: claimId,
-    detail: `status=${workStatus}`
+    detail: `status=${workStatus} recovered=${recoveredAmount}`
   });
 
   revalidatePath(`/claims/${claimId}`);

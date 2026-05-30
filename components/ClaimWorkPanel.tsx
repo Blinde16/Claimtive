@@ -2,7 +2,12 @@
 
 import { useFormState } from "react-dom";
 import { updateClaimWork, type ClaimWorkState } from "@/app/actions/claims";
-import { WORK_STATUSES, WORK_STATUS_LABELS } from "@/lib/worklist";
+import {
+  RESOLUTION_OUTCOMES,
+  RESOLUTION_OUTCOME_LABELS,
+  WORK_STATUSES,
+  WORK_STATUS_LABELS
+} from "@/lib/worklist";
 import { SubmitButton } from "./SubmitButton";
 
 const initial: ClaimWorkState = {};
@@ -12,12 +17,16 @@ export function ClaimWorkPanel({
   workStatus,
   workNote,
   assignedToId,
+  recoveredAmount,
+  resolutionOutcome,
   users
 }: {
   claimId: string;
   workStatus: string;
   workNote: string | null;
   assignedToId: string | null;
+  recoveredAmount: number;
+  resolutionOutcome: string | null;
   users: Array<{ id: string; name: string }>;
 }) {
   const [state, formAction] = useFormState(updateClaimWork, initial);
@@ -77,6 +86,45 @@ export function ClaimWorkPanel({
           placeholder="e.g. Called Aetna 5/27, resubmitting with auth #12345"
           className="input w-full"
         />
+      </div>
+
+      {/* Resolution detail — most relevant once the claim is RESOLVED, but we
+          always show it so partial progress can be recorded. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="label" htmlFor="recoveredAmount">
+            Recovered amount
+          </label>
+          <input
+            id="recoveredAmount"
+            name="recoveredAmount"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            defaultValue={recoveredAmount > 0 ? recoveredAmount : ""}
+            placeholder="0.00"
+            className="input w-full"
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="resolutionOutcome">
+            Resolution outcome
+          </label>
+          <select
+            id="resolutionOutcome"
+            name="resolutionOutcome"
+            defaultValue={resolutionOutcome ?? ""}
+            className="input w-full"
+          >
+            <option value="">—</option>
+            {RESOLUTION_OUTCOMES.map((o) => (
+              <option key={o} value={o}>
+                {RESOLUTION_OUTCOME_LABELS[o]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {state.error ? (

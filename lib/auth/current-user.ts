@@ -26,6 +26,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   });
   if (!user) return null;
 
+  // Revocation: a session is only valid while its embedded tokenVersion matches
+  // the user's current one. Bumping tokenVersion (password reset/change, logout)
+  // instantly invalidates every outstanding session for that user. The app
+  // layout redirects to /login when this returns null.
+  if (typeof payload.tv === "number" && payload.tv !== user.tokenVersion) {
+    return null;
+  }
+
   return {
     id: user.id,
     email: user.email,

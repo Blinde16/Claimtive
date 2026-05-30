@@ -60,6 +60,45 @@ export async function getDashboardMetrics(
   };
 }
 
+export interface RecoveredSummary {
+  totalRecovered: number;
+  resolvedClaimCount: number;
+  /** Recovered dollars as a share of recoverable (denied + underpaid). */
+  recoveryRate: number;
+}
+
+/**
+ * Closes the ROI loop: how much money working claims has actually brought back,
+ * versus the recoverable opportunity (denied + underpaid). Scoped to the org's
+ * 835 (remittance) claims.
+ */
+export async function getRecoveredSummary(
+  organizationId: string
+): Promise<RecoveredSummary> {
+  const where = remitWhere(organizationId);
+  const [agg, resolvedClaimCount] = await Promise.all([
+    prisma.claim.aggregate({
+      where,
+      _sum: {
+        recoveredAmount: true,
+        deniedAmount: true,
+        underpaidAmount: true
+      }
+    }),
+    prisma.claim.count({ where: { ...where, workStatus: "RESOLVED" } })
+  ]);
+
+  const totalRecovered = Number(agg._sum.recoveredAmount ?? 0);
+  const recoverable =
+    Number(agg._sum.deniedAmount ?? 0) + Number(agg._sum.underpaidAmount ?? 0);
+
+  return {
+    totalRecovered: round2(totalRecovered),
+    resolvedClaimCount,
+    recoveryRate: recoverable > 0 ? totalRecovered / recoverable : 0
+  };
+}
+
 export interface DenialReasonRow {
   groupCode: string;
   reasonCode: string;

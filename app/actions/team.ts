@@ -151,7 +151,12 @@ export async function resetMemberPassword(
   const tempPassword = generateTempPassword();
   await prisma.user.update({
     where: { id: target.id },
-    data: { passwordHash: await hashPassword(tempPassword) }
+    // Bump tokenVersion so any active sessions the member had are revoked — a
+    // reset must lock out whoever held the old credentials.
+    data: {
+      passwordHash: await hashPassword(tempPassword),
+      tokenVersion: { increment: 1 }
+    }
   });
 
   await recordAudit({

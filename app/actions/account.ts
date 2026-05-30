@@ -1,9 +1,11 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { signSession, sessionCookieOptions } from "@/lib/auth/session";
 import { recordAudit } from "@/lib/audit";
 
 export interface AccountState {
@@ -51,10 +53,27 @@ export async function changePassword(
     return { error: "New password must be different from the current one." };
   }
 
-  await prisma.user.update({
+  // Bump tokenVersion to revoke all OTHER outstanding sessions, then re-issue a
+  // fresh session for THIS device so the user isn't logged out where they just
+  // changed it.
+  const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(parsed.data.newPassword) }
+    data: {
+      passwordHash: await hashPassword(parsed.data.newPassword),
+      tokenVersion: { increment: 1 }
+    },
+    select: { tokenVersion: true }
   });
+
+  const token = await signSession({
+    sub: user.id,
+    orgId: user.organizationId,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    tv: updated.tokenVersion
+  });
+  cookies().set({ ...sessionCookieOptions, value: token });
 
   await recordAudit({
     organizationId: user.organizationId,

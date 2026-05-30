@@ -105,6 +105,14 @@ export default async function ClaimDetailPage({
                 {formatCurrency(Number(claim.underpaidAmount))}
               </dd>
             </div>
+            {Number(claim.recoveredAmount) > 0 ? (
+              <div>
+                <dt className="text-xs uppercase text-slate-400">Recovered</dt>
+                <dd className="font-semibold text-emerald-600">
+                  {formatCurrency(Number(claim.recoveredAmount))}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
 
@@ -143,6 +151,8 @@ export default async function ClaimDetailPage({
           workStatus={claim.workStatus}
           workNote={claim.workNote}
           assignedToId={claim.assignedToId}
+          recoveredAmount={Number(claim.recoveredAmount)}
+          resolutionOutcome={claim.resolutionOutcome}
           users={users}
         />
       </section>

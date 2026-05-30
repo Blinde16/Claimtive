@@ -12,6 +12,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: string;
+  tv: number; // tokenVersion at issue time — checked against the user row to revoke
 }
 
 function secret(): Uint8Array {

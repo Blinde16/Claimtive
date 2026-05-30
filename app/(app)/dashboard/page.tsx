@@ -7,7 +7,8 @@ import {
   getDenialReasonBreakdown,
   getMonthlyTrend,
   getPayerBreakdown,
-  getProviderBreakdown
+  getProviderBreakdown,
+  getRecoveredSummary
 } from "@/lib/analytics/metrics";
 import {
   getCobFollowUps,
@@ -43,7 +44,8 @@ export default async function DashboardPage() {
     flagged,
     unadjudicated,
     patientResp,
-    cob
+    cob,
+    recovered
   ] = await Promise.all([
     getDashboardMetrics(orgId),
     getCategoryBreakdown(orgId),
@@ -62,7 +64,8 @@ export default async function DashboardPage() {
     }),
     getUnadjudicatedClaims(orgId),
     getPatientResponsibilitySummary(orgId),
-    getCobFollowUps(orgId)
+    getCobFollowUps(orgId),
+    getRecoveredSummary(orgId)
   ]);
 
   // Try AI-generated insights first; on any failure (disabled, error, or the
@@ -88,7 +91,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-7">
         <KpiCard label="Billed" value={formatCurrency(metrics.totalBilled)} />
         <KpiCard
           label="Net paid"
@@ -113,6 +116,12 @@ export default async function DashboardPage() {
           value={formatCurrency(metrics.recoverable)}
           sub="Denials + underpayments"
           accent="danger"
+        />
+        <KpiCard
+          label="Recovered to date"
+          value={formatCurrency(recovered.totalRecovered)}
+          sub={`${formatPercent(recovered.recoveryRate)} of recoverable`}
+          accent="success"
         />
         <KpiCard
           label="Denial rate"

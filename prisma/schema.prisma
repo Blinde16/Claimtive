@@ -69,6 +69,10 @@ model User {
   mfaEnabled     Boolean      @default(false)
   mfaSecret      String?
   mfaBackupCodes String[]     @default([])
+  // Bumped to invalidate all outstanding sessions (password reset/change,
+  // logout). The signed session embeds the value issued at login; getCurrentUser
+  // rejects a token whose tokenVersion no longer matches.
+  tokenVersion   Int          @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -192,6 +196,10 @@ model Claim {
   assignedToId            String?
   assignedTo              User?        @relation("ClaimAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   workUpdatedAt           DateTime?
+  // Outcome captured when a flagged claim is resolved — closes the ROI loop:
+  // how many dollars were actually recovered, and the disposition.
+  recoveredAmount         Decimal      @default(0) @db.Decimal(12, 2)
+  resolutionOutcome       String? // e.g. RECOVERED_FULL, RECOVERED_PARTIAL, UPHELD, WRITTEN_OFF
 
   createdAt               DateTime     @default(now())
 
