@@ -8,8 +8,10 @@ import { brand } from "@/lib/brand";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
   { href: "/claims", label: "Claims", icon: "▤" },
+  { href: "/risk", label: "Denial risk", icon: "⚠" },
   { href: "/assistant", label: "Assistant", icon: "✦" },
   { href: "/uploads", label: "Uploads", icon: "↥" },
+  { href: "/integrations", label: "Integrations", icon: "⇄" },
   { href: "/contracts", label: "Contracts", icon: "▣" },
   { href: "/team", label: "Team", icon: "◍" },
   { href: "/audit", label: "Audit log", icon: "❑" },
