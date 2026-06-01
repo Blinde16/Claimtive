@@ -13,7 +13,8 @@ const NAV = [
   { href: "/contracts", label: "Contracts", icon: "▣" },
   { href: "/team", label: "Team", icon: "◍" },
   { href: "/audit", label: "Audit log", icon: "❑" },
-  { href: "/account", label: "Account", icon: "◎" }
+  { href: "/account", label: "Account", icon: "◎" },
+  { href: "/how-it-works", label: "How It Works", icon: "◈" }
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
