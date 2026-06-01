@@ -60,6 +60,87 @@ export async function getDashboardMetrics(
   };
 }
 
+export interface ChargeWaterfall {
+  /** Sum of claim.totalCharge — the denominator everything below decomposes. */
+  billed: number;
+  /** Sum of claim.totalPaid (net paid by payer). */
+  paid: number;
+  /** CO group adjustments — contractual write-offs (expected, not recoverable). */
+  contractual: number;
+  /** PR group adjustments — patient responsibility (deductible/coinsurance/copay). */
+  patientResp: number;
+  /** OA/PI/CR group adjustments — other / COB / payer-initiated. */
+  other: number;
+  /**
+   * Residual of the X12 CAS identity (Charge = Paid + CO + PR + OA/PI/CR).
+   * Should be ~0 on clean data; surfaced so any non-reconciling gap is honest.
+   */
+  unclassified: number;
+  /** Subset of billed that is actionable denials worth working. */
+  recoverableDenied: number;
+  /** Shortfall below contracted rate — a separate opportunity, not a slice of billed. */
+  underpaid: number;
+}
+
+/**
+ * Decomposes billed charges along the X12 CAS identity:
+ *   Charge = Paid + CO (contractual) + PR (patient) + OA/PI/CR (other),
+ * so the segments reconcile to `billed`. Scoped to the org's 835 claims.
+ * Adjustments attach at claim OR service-line level, so both are summed.
+ * `underpaid` is returned for context but is a shortfall vs contract — NOT a
+ * slice of billed — so callers should present it separately, not in the bar.
+ */
+export async function getChargeWaterfall(
+  organizationId: string
+): Promise<ChargeWaterfall> {
+  const where = remitWhere(organizationId);
+  const [claimAgg, byGroup] = await Promise.all([
+    prisma.claim.aggregate({
+      where,
+      _sum: {
+        totalCharge: true,
+        totalPaid: true,
+        deniedAmount: true,
+        underpaidAmount: true
+      }
+    }),
+    prisma.adjustment.groupBy({
+      by: ["groupCode"],
+      where: {
+        OR: [
+          { claim: remitWhere(organizationId) },
+          { serviceLine: { claim: remitWhere(organizationId) } }
+        ]
+      },
+      _sum: { amount: true }
+    })
+  ]);
+
+  const byGroupAmount = new Map<string, number>();
+  for (const g of byGroup) {
+    byGroupAmount.set(g.groupCode, Number(g._sum.amount ?? 0));
+  }
+  const groupSum = (...codes: string[]) =>
+    codes.reduce((acc, code) => acc + (byGroupAmount.get(code) ?? 0), 0);
+
+  const billed = Number(claimAgg._sum.totalCharge ?? 0);
+  const paid = Number(claimAgg._sum.totalPaid ?? 0);
+  const contractual = groupSum("CO");
+  const patientResp = groupSum("PR");
+  const other = groupSum("OA", "PI", "CR");
+
+  return {
+    billed: round2(billed),
+    paid: round2(paid),
+    contractual: round2(contractual),
+    patientResp: round2(patientResp),
+    other: round2(other),
+    unclassified: round2(billed - paid - contractual - patientResp - other),
+    recoverableDenied: round2(Number(claimAgg._sum.deniedAmount ?? 0)),
+    underpaid: round2(Number(claimAgg._sum.underpaidAmount ?? 0))
+  };
+}
+
 export interface RecoveredSummary {
   totalRecovered: number;
   resolvedClaimCount: number;
@@ -392,4 +473,66 @@ export async function getProviderBreakdown(
     })
     .sort((a, b) => b.denied + b.underpaid - (a.denied + a.underpaid))
     .slice(0, limit);
+}
+
+export interface ArAgingBucket {
+  label: string;
+  count: number;
+  /** Sum of (deniedAmount + underpaidAmount) for claims in this age bucket. */
+  amount: number;
+}
+
+/**
+ * Ages the org's recoverable 835 claims (denied OR underpaid) into standard A/R
+ * buckets. Each claim's age is days since the most meaningful date available
+ * (service date → paid date → createdAt). Older claims risk running past payer
+ * timely-filing deadlines (which vary by payer), so the oldest should be worked
+ * first. Buckets are returned in chronological order.
+ */
+export async function getArAging(
+  organizationId: string
+): Promise<ArAgingBucket[]> {
+  const claims = await prisma.claim.findMany({
+    where: {
+      ...remitWhere(organizationId),
+      OR: [{ isDenied: true }, { isUnderpaid: true }]
+    },
+    select: {
+      serviceDate: true,
+      paidDate: true,
+      createdAt: true,
+      deniedAmount: true,
+      underpaidAmount: true
+    }
+  });
+
+  const buckets: ArAgingBucket[] = [
+    { label: "0–30", count: 0, amount: 0 },
+    { label: "31–60", count: 0, amount: 0 },
+    { label: "61–90", count: 0, amount: 0 },
+    { label: "90+", count: 0, amount: 0 }
+  ];
+
+  const now = new Date();
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+  for (const c of claims) {
+    const date = c.serviceDate ?? c.paidDate ?? c.createdAt;
+    const ageDays = Math.floor((now.getTime() - date.getTime()) / MS_PER_DAY);
+    const recoverable =
+      Number(c.deniedAmount ?? 0) + Number(c.underpaidAmount ?? 0);
+
+    const bucket =
+      ageDays <= 30
+        ? buckets[0]
+        : ageDays <= 60
+          ? buckets[1]
+          : ageDays <= 90
+            ? buckets[2]
+            : buckets[3];
+    bucket.count += 1;
+    bucket.amount += recoverable;
+  }
+
+  return buckets.map((b) => ({ ...b, amount: round2(b.amount) }));
 }

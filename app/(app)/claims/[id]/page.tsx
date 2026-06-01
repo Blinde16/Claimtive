@@ -10,6 +10,8 @@ import {
 } from "@/lib/analytics/carc";
 import { StatusBadge } from "@/components/dashboard-ui";
 import { ClaimWorkPanel } from "@/components/ClaimWorkPanel";
+import { AppealDrafter } from "@/components/AppealDrafter";
+import { isAiEnabled } from "@/lib/ai/vertex";
 import { recordAudit } from "@/lib/audit";
 
 export const metadata = { title: "Claim detail" };
@@ -44,6 +46,7 @@ export default async function ClaimDetailPage({
   });
 
   const isRemit = claim.ediFile.type === "X835";
+  const canAppeal = isRemit && (claim.isDenied || claim.isUnderpaid) && isAiEnabled();
 
   // Org members for the worklist assignee dropdown.
   const users = await prisma.user.findMany({
@@ -156,6 +159,23 @@ export default async function ClaimDetailPage({
           users={users}
         />
       </section>
+
+      {canAppeal ? (
+        <section className="card p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Appeal letter
+            </h2>
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+              AI-assisted
+            </span>
+          </div>
+          <AppealDrafter
+            claimId={claim.id}
+            patientControlNumber={claim.patientControlNumber}
+          />
+        </section>
+      ) : null}
 
       <section className="card p-6">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">

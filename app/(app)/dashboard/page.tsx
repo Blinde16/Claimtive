@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import {
+  getArAging,
   getCategoryBreakdown,
+  getChargeWaterfall,
   getDashboardMetrics,
   getDenialReasonBreakdown,
   getMonthlyTrend,
@@ -45,7 +47,9 @@ export default async function DashboardPage() {
     unadjudicated,
     patientResp,
     cob,
-    recovered
+    recovered,
+    waterfall,
+    arAging
   ] = await Promise.all([
     getDashboardMetrics(orgId),
     getCategoryBreakdown(orgId),
@@ -65,7 +69,9 @@ export default async function DashboardPage() {
     getUnadjudicatedClaims(orgId),
     getPatientResponsibilitySummary(orgId),
     getCobFollowUps(orgId),
-    getRecoveredSummary(orgId)
+    getRecoveredSummary(orgId),
+    getChargeWaterfall(orgId),
+    getArAging(orgId)
   ]);
 
   // Try AI-generated insights first; on any failure (disabled, error, or the
@@ -143,6 +149,93 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {(() => {
+        const segments = [
+          {
+            label: "Net paid",
+            value: waterfall.paid,
+            barClass: "bg-emerald-500",
+            dotClass: "bg-emerald-500"
+          },
+          {
+            label: "Contractual write-offs",
+            value: waterfall.contractual,
+            barClass: "bg-slate-400",
+            dotClass: "bg-slate-400"
+          },
+          {
+            label: "Patient responsibility",
+            value: waterfall.patientResp,
+            barClass: "bg-sky-500",
+            dotClass: "bg-sky-500"
+          },
+          {
+            label: "Other / COB",
+            value: waterfall.other,
+            barClass: "bg-amber-500",
+            dotClass: "bg-amber-500"
+          },
+          // Only show the residual if it's a real, non-reconciling gap.
+          ...(waterfall.unclassified > 0
+            ? [
+                {
+                  label: "Unclassified",
+                  value: waterfall.unclassified,
+                  barClass: "bg-rose-500",
+                  dotClass: "bg-rose-500"
+                }
+              ]
+            : [])
+        ].filter((s) => s.value > 0);
+
+        const billed = waterfall.billed;
+        const pct = (v: number) => (billed > 0 ? (v / billed) * 100 : 0);
+
+        return (
+          <SectionCard
+            title="Where your billed dollars went"
+            action={
+              <span className="text-sm font-semibold text-slate-700">
+                {formatCurrency(billed)} billed
+              </span>
+            }
+          >
+            <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-100">
+              {segments.map((s) => (
+                <div
+                  key={s.label}
+                  className={`h-full ${s.barClass}`}
+                  style={{ width: `${Math.max(pct(s.value), 1.5)}%` }}
+                  title={`${s.label}: ${formatCurrency(s.value)}`}
+                />
+              ))}
+            </div>
+            <ul className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              {segments.map((s) => (
+                <li key={s.label} className="flex items-center gap-2">
+                  <span
+                    className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${s.dotClass}`}
+                  />
+                  <span className="text-slate-700">{s.label}</span>
+                  <span className="ml-auto tabular-nums text-slate-900">
+                    {formatCurrency(s.value)}
+                  </span>
+                  <span className="w-12 shrink-0 text-right tabular-nums text-slate-400">
+                    {formatPercent(pct(s.value) / 100)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-sm text-slate-600">
+              Of the above, {formatCurrency(waterfall.recoverableDenied)} is
+              recoverable (actionable denials) and you were underpaid{" "}
+              {formatCurrency(waterfall.underpaid)} below contract — that&apos;s
+              your recoverable opportunity.
+            </p>
+          </SectionCard>
+        );
+      })()}
+
       {metrics.totalUnderpaid === 0 ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Underpayments show $0 — load your contracted rates on the{" "}
@@ -152,6 +245,59 @@ export default async function DashboardPage() {
           to enable underpayment detection.
         </div>
       ) : null}
+
+      <SectionCard title="Recoverable A/R by age">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2 pr-4 font-medium">Age (days)</th>
+                <th className="pb-2 pr-4 text-right font-medium">Claims</th>
+                <th className="pb-2 text-right font-medium">Recoverable</th>
+              </tr>
+            </thead>
+            <tbody>
+              {arAging.map((b) => {
+                const isOldest = b.label === "90+";
+                return (
+                  <tr
+                    key={b.label}
+                    className={`border-b border-slate-100 ${
+                      isOldest ? "bg-rose-50" : ""
+                    }`}
+                  >
+                    <td
+                      className={`py-2 pr-4 font-medium ${
+                        isOldest ? "text-rose-700" : "text-slate-800"
+                      }`}
+                    >
+                      {b.label}
+                    </td>
+                    <td
+                      className={`py-2 pr-4 text-right tabular-nums ${
+                        isOldest ? "text-rose-700" : "text-slate-600"
+                      }`}
+                    >
+                      {b.count}
+                    </td>
+                    <td
+                      className={`py-2 text-right tabular-nums ${
+                        isOldest ? "font-semibold text-rose-700" : "text-slate-900"
+                      }`}
+                    >
+                      {formatCurrency(b.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Older claims risk running past payer timely-filing deadlines — work the
+          oldest first.
+        </p>
+      </SectionCard>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
