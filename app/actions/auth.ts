@@ -30,10 +30,13 @@ export interface AuthState {
   mfaExpired?: boolean;
 }
 
-// Lockout thresholds. Password: 8 failures / 15 min per email and per IP.
+// Lockout thresholds. Password: 5 failures / 15 min per email and per IP.
+// Signup: 3 attempts / 1 hour per IP.
 // MFA code: 6 failures / 10 min per user.
-const LOGIN_MAX = 8;
+const LOGIN_MAX = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const SIGNUP_MAX = 3;
+const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 const MFA_MAX = 6;
 const MFA_WINDOW_MS = 10 * 60 * 1000;
 
@@ -230,6 +233,13 @@ export async function signup(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  const ipKey = `signup:ip:${getClientIp()}`;
+  if (checkRateLimit(ipKey, SIGNUP_MAX, SIGNUP_WINDOW_MS).limited) {
+    return {
+      error: "Too many sign-up attempts from this location. Please try again in an hour."
+    };
+  }
+
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     organization: formData.get("organization"),
@@ -239,6 +249,10 @@ export async function signup(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
+
+  // Count every attempt that passes validation — prevents mass account creation
+  // and email enumeration via repeated signup calls from the same IP.
+  registerFailure(ipKey, SIGNUP_WINDOW_MS);
 
   const email = parsed.data.email.toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email } });
