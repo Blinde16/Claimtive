@@ -7,7 +7,11 @@ export const metadata: Metadata = {
     default: `${brand.name} — ${brand.tagline}`,
     template: `%s | ${brand.name}`
   },
-  description: brand.description
+  description: brand.description,
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg"
+  }
 };
 
 export default function RootLayout({

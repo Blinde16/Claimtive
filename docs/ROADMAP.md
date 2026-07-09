@@ -94,13 +94,46 @@ data and produce a real "recoverable dollars" number.
 - [ ] **Reporting**: per-role dashboards, scheduled email summaries
 - [ ] **Private networking** for Cloud SQL (VPC), least-privilege IAM pass
 - [ ] Independent **penetration test**
+- [ ] **Eligibility verification** — pre-submission insurance eligibility check via clearinghouse API (Availity/Waystar); flag patients likely to be uncovered before the claim goes out. Eliminates a whole category of avoidable denials and makes Claimtive stickier as a pre- and post-submission tool.
 
 ### Phase 3 — Scale & differentiate — _~3–9 months_
 - [ ] **Predictive denial prevention** (flag claims likely to deny before submission)
 - [ ] **Cross-clinic benchmarking** ("your prior-auth denials are 2× peers")
 - [ ] **Self-serve onboarding** + in-app billing/invoicing
 - [ ] Direct payer EDI connections (only where clearinghouses fall short)
+- [ ] **Prior authorization tracker** — lightweight module to log auth requests, track approval status, and flag expirations. Clinics currently manage this in spreadsheets; a dedicated tracker inside Claimtive closes the loop between auth status and claim submission/denial outcomes.
 - [ ] **SOC 2 Type II** certification
+
+### Phase 3B — AI Accounts Receivable (AR) Intelligence — _add-on module_
+
+> **Pitch:** "We found you $X in denials. Here's the $Y sitting in unpaid claims we can also chase for you."
+
+AR management is a labor-intensive judgment problem: which of hundreds of outstanding claims do I chase today, and how? This module turns that into an AI-driven workflow.
+
+**Data foundation** (prerequisite: Phase 2 `837 ↔ 835 matching`)
+- Derive open AR as the delta: claims billed (837) with no matching 835 payment — broken out by payer, provider, and aging bucket (30 / 60 / 90 / 120+ days)
+- Enrich with denial history from the denial engine: claims with a prior denial get a different follow-up path than truly unpaid claims
+
+**Feature set**
+
+- [ ] **AR aging dashboard** — distinct from the denial dashboard; shows total cash-flow exposure by bucket, payer, and provider. Gives clinic leadership a true receivables picture at a glance.
+- [ ] **AI prioritization engine** — score each open claim by `recovery probability × dollar amount`. Surface a daily worklist: "these N claims are worth your next 2 hours." Uses payer behavior history, days-outstanding, denial patterns, and claim type as signals.
+- [ ] **Smart follow-up drafts** (Claude) — auto-generate payer-specific follow-up letters or portal resubmission scripts based on payer, denial history, and aging. Same Claude integration used for appeal letters; reuses the same prompt/output pipeline.
+- [ ] **Write-off prediction** — flag claims where historical patterns suggest recovery is unlikely without escalation. Gives billers an early decision point: appeal now, send to collections, or adjust off. Reduces carrying cost of hopeless AR.
+- [ ] **AR trend reporting** — track Days in AR (A/R days) over time per clinic; benchmark against Phase 3 cross-clinic data. A/R days is the single KPI clinic administrators care most about.
+
+**Go-to-market positioning**
+
+| Stage | Pitch |
+|---|---|
+| Pilot | "Claimtive finds your denials. The AR module tells you what else hasn't paid yet." |
+| Upsell | Add-on module at +$150–300/provider/mo, or expand the contingency % to cover AR recoveries |
+| Differentiator | Most small-clinic RCM tools show denial dashboards. None of them prioritize your AR worklist with AI. |
+
+**Dependencies**
+- `837 ↔ 835 matching` (Phase 2) — required to derive true open AR
+- Reliable 837 submission data from clinic's clearinghouse or PMS export
+- Sufficient historical claims data to train payer-behavior scoring (viable after 3–6 months of real data)
 
 ---
 
