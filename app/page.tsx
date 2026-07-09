@@ -303,6 +303,11 @@ export default function HomePage() {
             ))}
           </div>
           <p className="mt-6 text-center text-xs text-slate-400">
+            5+ providers?{" "}
+            <Link href="/signup" className="text-brand-600 hover:underline">
+              Talk to us
+            </Link>{" "}
+            about volume pricing.{" "}
             Billing companies serving multiple practices —{" "}
             <Link href="/signup" className="text-brand-600 hover:underline">
               contact us
