@@ -90,6 +90,11 @@ export async function login(
   }
 
   const email = parsed.data.email.toLowerCase();
+
+  if (email === "demo@claimtive.com" && process.env.DEMO_ENABLED !== "true") {
+    return { error: "Invalid email or password." };
+  }
+
   const emailKey = `login:email:${email}`;
   const ipKey = `login:ip:${getClientIp()}`;
 
