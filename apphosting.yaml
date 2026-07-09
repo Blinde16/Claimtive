@@ -38,6 +38,10 @@ env:
   # Auth uses ADC via the App Hosting compute SA (granted roles/aiplatform.user);
   # no API key/secret required. The orchestrator falls back to deterministic
   # rule-based insights if AI_ENABLED is false or any call/verify step fails.
+  - variable: APP_URL
+    value: "https://app.claimtive.com"
+    availability:
+      - RUNTIME
   - variable: AI_ENABLED
     value: "true"
     availability:

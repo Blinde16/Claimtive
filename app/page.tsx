@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 
+const APP_URL = process.env.APP_URL ?? "https://app.claimtive.com";
+
 export const metadata: Metadata = {
   title: `${brand.name} — AI Revenue Recovery for Specialty Practices`,
   description:
@@ -105,12 +107,12 @@ export default function HomePage() {
             <a href="#pricing" className="hidden text-sm font-medium text-slate-600 hover:text-brand-600 sm:block">
               Pricing
             </a>
-            <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-brand-600">
+            <a href={`${APP_URL}/login`} className="text-sm font-medium text-slate-600 hover:text-brand-600">
               Sign in
-            </Link>
-            <Link href="/signup" className="btn-primary text-sm">
+            </a>
+            <a href={`${APP_URL}/signup`} className="btn-primary text-sm">
               Get started
-            </Link>
+            </a>
           </nav>
         </div>
       </header>
@@ -125,9 +127,9 @@ export default function HomePage() {
           Claimtive parses your 835 remittance files and uses AI to draft payer-specific appeal letters the same day denials arrive — without touching your EMR. Built for independent specialty practices with 1–5 providers.
         </p>
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-          <Link href="/signup" className="btn-primary px-8 py-3 text-base">
+          <a href={`${APP_URL}/signup`} className="btn-primary px-8 py-3 text-base">
             Start free pilot
-          </Link>
+          </a>
           <a href="#how-it-works" className="btn-secondary px-8 py-3 text-base">
             See how it works
           </a>
@@ -288,8 +290,8 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <div className="mt-8">
-                  <Link
-                    href="/signup"
+                  <a
+                    href={`${APP_URL}/signup`}
                     className={`block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition ${
                       plan.highlight
                         ? "bg-white text-brand-700 hover:bg-brand-50"
@@ -297,21 +299,21 @@ export default function HomePage() {
                     }`}
                   >
                     Start free pilot
-                  </Link>
+                  </a>
                 </div>
               </div>
             ))}
           </div>
           <p className="mt-6 text-center text-xs text-slate-400">
             5+ providers?{" "}
-            <Link href="/signup" className="text-brand-600 hover:underline">
+            <a href={`${APP_URL}/signup`} className="text-brand-600 hover:underline">
               Talk to us
-            </Link>{" "}
+            </a>{" "}
             about volume pricing.{" "}
             Billing companies serving multiple practices —{" "}
-            <Link href="/signup" className="text-brand-600 hover:underline">
+            <a href={`${APP_URL}/signup`} className="text-brand-600 hover:underline">
               contact us
-            </Link>{" "}
+            </a>{" "}
             for white-label pricing.
           </p>
         </div>
@@ -325,12 +327,12 @@ export default function HomePage() {
             We&apos;re onboarding a small group of independent specialty practices for our founding cohort. Setup takes 15 minutes. No EMR changes. No IT team required.
           </p>
           <div className="mt-8">
-            <Link
-              href="/signup"
+            <a
+              href={`${APP_URL}/signup`}
               className="inline-flex items-center justify-center rounded-lg bg-white px-8 py-3 text-base font-semibold text-brand-700 transition hover:bg-brand-50"
             >
               Apply for early access
-            </Link>
+            </a>
           </div>
           <p className="mt-4 text-xs text-brand-300">
             Limited spots · Pain management · Spine · Orthopedics · PT/OT
@@ -348,8 +350,8 @@ export default function HomePage() {
             AI-powered revenue recovery for independent specialty practices
           </p>
           <div className="flex items-center gap-6 text-xs text-slate-500">
-            <Link href="/login" className="hover:text-brand-600">Sign in</Link>
-            <Link href="/signup" className="hover:text-brand-600">Get started</Link>
+            <a href={`${APP_URL}/login`} className="hover:text-brand-600">Sign in</a>
+            <a href={`${APP_URL}/signup`} className="hover:text-brand-600">Get started</a>
           </div>
         </div>
       </footer>
