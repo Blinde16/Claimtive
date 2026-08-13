@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { resolveClientIp } from "./client-ip";
 import { prisma } from "./db";
 
 export interface AuditInput {
@@ -19,8 +20,11 @@ export interface AuditInput {
 export async function recordAudit(input: AuditInput): Promise<void> {
   let ipAddress: string | null = null;
   try {
-    const fwd = headers().get("x-forwarded-for");
-    ipAddress = fwd ? fwd.split(",")[0]!.trim() : null;
+    // Must be the last hop we can trust, not the first entry in the header:
+    // an attacker controls the left end of x-forwarded-for, so the old
+    // first-entry read let anyone stamp a forged source address into the HIPAA
+    // access log. See lib/client-ip.ts.
+    ipAddress = resolveClientIp(headers());
   } catch {
     // headers() is unavailable outside a request scope — fine, leave null.
   }
