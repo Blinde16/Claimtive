@@ -1,8 +1,15 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  // A sign-in screen has no business in search results.
+  robots: { index: false, follow: false }
+};
 
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/dashboard");
@@ -28,9 +35,14 @@ export default async function LoginPage() {
             </Link>
           </p>
         </div>
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Demo login is pre-filled. Sample data is loaded for the demo workspace.
-        </p>
+        {/* Only advertised on a demo build — see components/LoginForm.tsx.
+            In production the flag is unset, so this copy (and the credentials
+            it refers to) never reaches the page. */}
+        {process.env.NEXT_PUBLIC_DEMO_ENABLED === "true" ? (
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Demo login is pre-filled. Sample data is loaded for the demo workspace.
+          </p>
+        ) : null}
       </div>
     </main>
   );

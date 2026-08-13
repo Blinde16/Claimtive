@@ -1,4 +1,5 @@
 import "./load-env";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
@@ -7,8 +8,17 @@ import { ingestEdiFile } from "../lib/ingest";
 
 const prisma = new PrismaClient();
 
-const DEMO_EMAIL = "demo@claimtive.com";
-const DEMO_PASSWORD = "demo1234";
+const DEMO_EMAIL = process.env.DEMO_EMAIL ?? "demo@claimtive.com";
+
+// No working password literal lives in this repo. A demo deployment supplies
+// DEMO_PASSWORD (and sets NEXT_PUBLIC_DEMO_PASSWORD to the same value at build
+// time so the login form can pre-fill it); anywhere else we mint a random one
+// and print it once, so a stray seed run can never leave a guessable account
+// behind.
+const DEMO_PASSWORD_FROM_ENV = process.env.DEMO_PASSWORD?.trim();
+const DEMO_PASSWORD =
+  DEMO_PASSWORD_FROM_ENV || randomBytes(18).toString("base64url");
+const DEMO_PASSWORD_WAS_GENERATED = !DEMO_PASSWORD_FROM_ENV;
 
 async function main() {
   console.log("Resetting demo data...");
@@ -103,7 +113,15 @@ async function main() {
   }
 
   console.log("\nSeed complete.");
-  console.log(`Login: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  if (DEMO_PASSWORD_WAS_GENERATED) {
+    console.log(
+      `Login: ${DEMO_EMAIL} / ${DEMO_PASSWORD}\n` +
+        "  ^ randomly generated because DEMO_PASSWORD was not set. Copy it now — " +
+        "it is not stored anywhere, and re-seeding mints a new one."
+    );
+  } else {
+    console.log(`Login: ${DEMO_EMAIL} / (the DEMO_PASSWORD you supplied)`);
+  }
 }
 
 main()

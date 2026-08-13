@@ -17,6 +17,8 @@ import {
   registerFailure
 } from "@/lib/auth/rateLimit";
 import { recordAudit } from "@/lib/audit";
+import { resolveClientIp } from "@/lib/client-ip";
+import { DEMO_EMAIL, isDemoEnabled } from "@/lib/demo";
 import {
   consumeBackupCode,
   decryptSecret,
@@ -45,11 +47,11 @@ const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 const MFA_MAX = 6;
 const MFA_WINDOW_MS = 10 * 60 * 1000;
 
+// Keyed off the last hop we can trust, not the first entry the caller sent —
+// see lib/client-ip.ts. With the old first-entry logic every limit below could
+// be reset by a single attacker just by varying an inbound header.
 function getClientIp(): string {
-  const h = headers();
-  const xff = h.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return h.get("x-real-ip") ?? "unknown";
+  return resolveClientIp(headers());
 }
 
 function slugify(input: string): string {
@@ -98,7 +100,8 @@ export async function login(
 
   const email = parsed.data.email.toLowerCase();
 
-  if (email === "demo@claimtive.com" && process.env.DEMO_ENABLED !== "true") {
+  // The shared demo account only exists where it is explicitly switched on.
+  if (email === DEMO_EMAIL && !isDemoEnabled()) {
     return { error: "Invalid email or password." };
   }
 
