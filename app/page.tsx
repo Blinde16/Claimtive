@@ -4,10 +4,29 @@ import { brand } from "@/lib/brand";
 
 const APP_URL = process.env.APP_URL ?? "https://app.claimtive.com";
 
+const PAGE_TITLE = `${brand.name} — AI Revenue Recovery for Specialty Practices`;
+const PAGE_DESCRIPTION =
+  "Claimtive automates EDI 835 remittance processing and AI-drafts payer-specific appeal letters the same day denials arrive. Flat monthly pricing built for independent practices.";
+
+// The only indexable page in the app — it is what the sitemap points at, so
+// its share cards are spelled out rather than inherited from the root layout.
 export const metadata: Metadata = {
-  title: `${brand.name} — AI Revenue Recovery for Specialty Practices`,
-  description:
-    "Claimtive automates EDI 835 remittance processing and AI-drafts payer-specific appeal letters the same day denials arrive. Flat monthly pricing built for independent practices."
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: brand.name,
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    locale: "en_US"
+  },
+  twitter: {
+    card: "summary",
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION
+  }
 };
 
 const STATS = [
