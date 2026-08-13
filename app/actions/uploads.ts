@@ -9,6 +9,7 @@ import {
   IngestValidationError
 } from "@/lib/ingest";
 import { recordAudit } from "@/lib/audit";
+import { denyDemoWrite } from "@/lib/demo";
 
 export interface UploadState {
   error?: string;
@@ -23,6 +24,10 @@ export async function uploadEdi(
 ): Promise<UploadState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in to upload." };
+  // Uploads write persistent, attacker-supplied rows into the demo tenant and
+  // are the one place an anonymous visitor could push data through the parser.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {

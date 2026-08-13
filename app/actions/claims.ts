@@ -17,6 +17,9 @@ export async function updateClaimWork(
 ): Promise<ClaimWorkState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  // Note: intentionally NOT behind denyDemoWrite (lib/demo.ts). Working the
+  // list is the demo, the writes are confined to the demo org's own synthetic
+  // claims, and re-seeding resets them.
 
   const claimId = (formData.get("claimId") as string | null)?.trim();
   const workStatus = (formData.get("workStatus") as string | null)?.trim();
