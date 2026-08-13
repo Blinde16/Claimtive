@@ -14,6 +14,7 @@ import {
   verifyMfaToken
 } from "@/lib/auth/mfa";
 import { recordAudit } from "@/lib/audit";
+import { denyDemoWrite } from "@/lib/demo";
 
 export interface MfaState {
   error?: string;
@@ -26,6 +27,10 @@ export interface MfaState {
 export async function beginMfaEnroll(): Promise<MfaState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  // Enrolling MFA on the shared demo account would lock everyone else out of
+  // it permanently — the enroller is the only one holding the TOTP secret.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const secret = generateMfaSecret();
   await prisma.user.update({
@@ -42,6 +47,8 @@ export async function beginMfaEnroll(): Promise<MfaState> {
 export async function confirmMfaEnroll(code: string): Promise<MfaState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const record = await prisma.user.findUnique({
     where: { id: user.id },
@@ -82,6 +89,8 @@ export async function confirmMfaEnroll(code: string): Promise<MfaState> {
 export async function disableMfa(password: string): Promise<MfaState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const record = await prisma.user.findUnique({
     where: { id: user.id },

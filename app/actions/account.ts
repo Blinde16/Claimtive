@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession, sessionCookieOptions } from "@/lib/auth/session";
 import { recordAudit } from "@/lib/audit";
+import { denyDemoWrite } from "@/lib/demo";
 
 export interface AccountState {
   error?: string;
@@ -30,6 +31,10 @@ export async function changePassword(
 ): Promise<AccountState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  // The demo password is public by design; letting a visitor change it would
+  // hand them exclusive control of the shared account.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const parsed = schema.safeParse({
     currentPassword: formData.get("currentPassword"),

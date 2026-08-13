@@ -1,8 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignupForm } from "@/components/SignupForm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = {
+  title: "Create your workspace",
+  // Keep the sign-up form out of search results — the marketing page is the
+  // indexable entry point, and it links here.
+  robots: { index: false, follow: false }
+};
 
 export default async function SignupPage() {
   if (await getCurrentUser()) redirect("/dashboard");

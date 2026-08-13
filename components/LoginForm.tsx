@@ -6,6 +6,18 @@ import { SubmitButton } from "./SubmitButton";
 
 const initial: AuthState = {};
 
+// Demo credentials are pre-filled ONLY in a build made with
+// NEXT_PUBLIC_DEMO_ENABLED=true. `process.env.NEXT_PUBLIC_*` is inlined at
+// build time, so in a production build these three reads become `undefined`,
+// the comparison folds to `false`, and neither the demo address nor its
+// password exists anywhere in the shipped client bundle. Nothing here grants
+// access — DEMO_ENABLED on the server is the actual gate (app/actions/auth.ts).
+const demoEnabled = process.env.NEXT_PUBLIC_DEMO_ENABLED === "true";
+const demoEmail = demoEnabled ? process.env.NEXT_PUBLIC_DEMO_EMAIL : undefined;
+const demoPassword = demoEnabled
+  ? process.env.NEXT_PUBLIC_DEMO_PASSWORD
+  : undefined;
+
 export function LoginForm() {
   const [loginState, loginAction] = useFormState(login, initial);
   const [mfaState, mfaAction] = useFormState(verifyMfaLogin, initial);
@@ -72,7 +84,7 @@ export function LoginForm() {
           autoComplete="email"
           required
           className="input"
-          defaultValue="demo@claimtive.com"
+          defaultValue={demoEmail}
         />
       </div>
       <div>
@@ -86,7 +98,7 @@ export function LoginForm() {
           autoComplete="current-password"
           required
           className="input"
-          defaultValue="demo1234"
+          defaultValue={demoPassword}
         />
       </div>
       <SubmitButton pendingLabel="Signing in…">Sign in</SubmitButton>

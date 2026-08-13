@@ -13,6 +13,7 @@ import {
 import { AiDisabledError } from "@/lib/ai/vertex";
 import { recomputeOrgAnalytics } from "@/lib/analytics/recompute";
 import { recordAudit } from "@/lib/audit";
+import { denyDemoWrite } from "@/lib/demo";
 
 /**
  * Re-run the deterministic engine over already-ingested claims so newly loaded
@@ -151,6 +152,10 @@ export async function uploadFeeSchedule(
 ): Promise<ContractUploadState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in to upload contracts." };
+  // Contract rates drive every underpayment number in the demo workspace;
+  // they are not a visitor's to rewrite.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const file = formData.get("file");
   const defaultPayer = (formData.get("payer") as string | null)?.trim() || undefined;
@@ -242,6 +247,10 @@ export async function extractFeeSchedulePdf(
 ): Promise<PdfExtractState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in to upload contracts." };
+  // Same reasoning, plus this path spends real Vertex quota on a
+  // caller-supplied PDF.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -298,6 +307,8 @@ export async function confirmExtractedRates(
 ): Promise<ConfirmRatesState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in to save contracts." };
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
 
   const payerName = (formData.get("payer") as string | null)?.trim();
   const contractName = (formData.get("contractName") as string | null)?.trim() || undefined;

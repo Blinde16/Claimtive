@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { recordAudit } from "@/lib/audit";
+import { denyDemoWrite } from "@/lib/demo";
 
 export interface TeamState {
   error?: string;
@@ -33,6 +34,10 @@ export async function addTeamMember(
 ): Promise<TeamState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  // The demo account is an OWNER; without this, any visitor could mint real
+  // users inside the demo tenant (and read the temp password back out).
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
   if (user.role !== "OWNER") {
     return { error: "Only an owner can add team members." };
   }
@@ -86,6 +91,9 @@ export async function removeTeamMember(
 ): Promise<TeamState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  // Likewise: deleting users out of the demo tenant is not a visitor's call.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
   if (user.role !== "OWNER") {
     return { error: "Only an owner can remove team members." };
   }
@@ -135,6 +143,10 @@ export async function resetMemberPassword(
 ): Promise<TeamState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  // Likewise: a reset hands the visitor the new password for someone else's
+  // account and revokes that member's sessions.
+  const denied = denyDemoWrite(user);
+  if (denied) return denied;
   if (user.role !== "OWNER") {
     return { error: "Only an owner can reset passwords." };
   }

@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { logout } from "@/app/actions/auth";
+
+// Applies to every page in this route group. Pages here set their own titles
+// but none set `robots`, so they all inherit this: the signed-in application
+// must never be indexed, and crawlers must not follow links deeper into it.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false }
+};
 
 export default async function AppLayout({
   children
